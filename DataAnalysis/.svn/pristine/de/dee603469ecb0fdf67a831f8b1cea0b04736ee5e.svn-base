@@ -1,0 +1,32 @@
+.pageWrap {
+  padding-bottom: 10px;
+}
+.searchWrap .el-checkbox {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.line-chart {
+  width: 99%;
+  margin: 0 auto;
+}
+.line-chart #order_pieChart1 {
+  display: inline-block;
+  width: 300px;
+  height: 300px;
+  margin: 0 auto;
+  margin-right: 30px;
+}
+.line-chart #order_pieChart2 {
+  display: inline-block;
+  width: 300px;
+  height: 300px;
+  margin: 0 auto;
+  margin-right: 30px;
+}
+.line-chart #order_lineChart {
+  display: inline-block;
+  width: 500px;
+  height: 300px;
+  margin: 0 auto;
+}

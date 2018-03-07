@@ -1,0 +1,178 @@
+.detailWrap {
+  font-size: 14px;
+}
+.detailWrap .keyword {
+  font-size: 25px;
+  font-weight: bold;
+  margin-left: 15px;
+  margin-right: 20px;
+  vertical-align: middle;
+}
+.detailWrap .pc, .detailWrap .m {
+  float: left;
+  width: 50%;
+  padding: 0 1%;
+}
+.detailWrap .pc {
+  border-right: 1px solid lightblue;
+}
+.detailWrap .ball-detail {
+  float: left;
+  width: 48%;
+  display: inline-block;
+  vertical-align: middle;
+  height: 120px;
+  /* border: 1px solid #eee; */
+}
+.detailWrap .ball-detail .ball {
+  display: inline-block;
+  width: 35%;
+  height: 120px;
+  vertical-align: middle;
+  margin-right: 1%;
+  background-size: 100%!important;
+}
+.detailWrap .ball-detail .ball.ball1 {
+  background: url(./../../assets/img/page/keyword/ball1.jpg) no-repeat center center;
+}
+.detailWrap .ball-detail .ball.ball2 {
+  background: url(./../../assets/img/page/keyword/ball2.jpg) no-repeat center center;
+}
+.detailWrap .ball-detail .ball.ball3 {
+  background: url(./../../assets/img/page/keyword/ball3.jpg) no-repeat center center;
+}
+.detailWrap .ball-detail .ball.ball4 {
+  background: url(./../../assets/img/page/keyword/ball4.jpg) no-repeat center center;
+}
+.detailWrap .ball-detail .ball.ball5 {
+  background: url(./../../assets/img/page/keyword/ball5.jpg) no-repeat center center;
+}
+.detailWrap .ball-detail .detail {
+  display: inline-block;
+  vertical-align: middle;
+  width: 58%;
+  font-size: 13px;
+  margin-top: 20px;
+}
+.detailWrap .ball-detail .detail p {
+  height: 28px;
+  width: 100%;
+}
+.detailWrap .ball-detail .detail p b {
+  display: inline-block;
+  width: 72px;
+}
+.detailWrap .ball-detail .detail p span {
+  display: inline-block;
+  width: 85px;
+  height: 25px;
+}
+.detailWrap .tips {
+  float: left;
+  width: 52%;
+  display: inline-block;
+  height: 120px;
+  vertical-align: middle;
+  height: 120px;
+  font-size: 14px;
+  color: #666;
+  margin-top: 10px;
+}
+.detailWrap .tips p {
+  font-weight: bold;
+  height: 20px;
+}
+.detailWrap .tips p i {
+  margin-right: 8px;
+}
+.detailWrap .tips ul {
+  height: 100px;
+  /* border: 1px solid #eee; */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.detailWrap .tips ul li {
+  background-color: #f4f4f5;
+  line-height: 20px;
+  color: #909399;
+  margin: 3px 0;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.detailWrap .index {
+  float: left;
+  width: 49%;
+  padding: 10px 2%;
+  display: inline-block;
+  border: 1px solid #eee;
+  font-size: 12px;
+  margin: 10px 0;
+}
+.detailWrap .index.mr {
+  margin-right: 2%;
+}
+.detailWrap .index .title {
+  display: inline-block;
+  width: 40%;
+  margin-right: 5%;
+  height: 25px;
+  vertical-align: sub;
+}
+.detailWrap .index .mark-block {
+  width: 100px;
+}
+.detailWrap .index ul li {
+  float: left;
+  display: inline-block;
+  width: 48%;
+  height: 25px;
+  cursor: pointer;
+}
+.detailWrap .index ul li b {
+  margin-right: 10px;
+}
+.detailWrap .index ul li span.red {
+  color: red;
+}
+.detailWrap .tab-table {
+  width: 100%;
+  height: 200px;
+  position: relative;
+}
+.detailWrap .tab-table .el-table {
+  font-size: 13px;
+}
+.detailWrap .tab-table .buttons {
+  position: absolute;
+  top: -4px;
+  right: 15px;
+  z-index: 2;
+}
+.detailWrap .moreKeywords {
+  margin: 10px 0;
+  border: 1px solid lightblue;
+}
+.detailWrap .moreKeywords table {
+  width: 100%;
+  text-align: center;
+}
+.detailWrap .moreKeywords table thead tr th {
+  height: 30px;
+  background-color: #f3f4f5;
+}
+.detailWrap .moreKeywords table tbody tr {
+  cursor: pointer;
+}
+.detailWrap .moreKeywords table tbody tr.hover {
+  background-color: #d9e8ec;
+}
+.detailWrap .moreKeywords table tbody tr td {
+  height: 24px;
+}
+.detailWrap .moreKeywords table thead tr th:nth-child(1),
+.detailWrap .moreKeywords table thead tr th:nth-child(6),
+.detailWrap .moreKeywords table tbody tr td:nth-child(1),
+.detailWrap .moreKeywords table tbody tr td:nth-child(6) {
+  border-right: 1px solid lightblue;
+}

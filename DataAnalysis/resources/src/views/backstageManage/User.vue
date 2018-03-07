@@ -1,0 +1,580 @@
+<template>
+    <page-wrap>
+        <!-- 搜索栏 -->
+        <search-wrap>
+            <div style="height: 1px;width: 100px;"></div>
+            <el-form ref="form" :model="searchData" label-width="100px" size="mini">
+                <el-row :gutter="21">
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="用户名：">
+                                <el-input v-model="searchData.user_name" placeholder="请输入内容"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="用户ID：">
+                                <el-input v-model="searchData.user_id" placeholder="请输入内容"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <el-form-item label-width="0">
+                            <el-button type="primary" @click="onSubmit">查询</el-button>
+                            <el-button type="danger" @click="onClear">清空</el-button>
+                            <el-button type="success" @click="addUser = true" :disabled=!buttonControl.userinfoadd>添加</el-button>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+            </el-form>
+        </search-wrap>
+
+        <!-- dialog -->
+        <el-dialog title="添加用户" :visible.sync="addUser" width="30%" size="mini" center>
+            <el-form size="small" :model="addUserForm" :rules="rules" ref="addUserForm">
+                <el-form-item prop="user_name" label="用户名称：" label-width="100px">
+                    <el-input v-model="addUserForm.user_name" placeholder="用户名"></el-input>
+                </el-form-item>
+                <el-form-item prop="login_name" label="登录名称：" label-width="100px">
+                    <el-input v-model="addUserForm.login_name" placeholder="登录名"></el-input>
+                </el-form-item>
+                <el-form-item label="电子邮箱" prop="email" label-width="100px">
+                    <el-input v-model="addUserForm.email" placeholder="电子邮箱"
+                              @keyup.enter.native="onAdd('addUserForm')"></el-input>
+                </el-form-item>
+                <el-form-item label="登录密码" prop="password" label-width="100px">
+                    <el-input v-model="addUserForm.password" placeholder="登录密码" type="password"
+                              @keyup.enter.native="onAdd('addUserForm')"></el-input>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button size="small" @click="addUser = false">取 消</el-button>
+                <el-button size="small" type="primary" @click="onAdd('addUserForm')">确 定</el-button>
+            </div>
+        </el-dialog>
+
+        <el-dialog title="修改密码" :visible.sync="editUser" width="30%" size="mini" center>
+            <el-form size="small" :model="editUserForm" ref="editUserForm">
+                <!--<el-form-item label="用户名称" prop="user_name" label-width="100px">-->
+                    <!--<el-input v-model="editUserForm.user_name" placeholder="用户名"></el-input>-->
+                <!--</el-form-item>-->
+                <!--<el-form-item label="电子邮箱" prop="email" label-width="100px">-->
+                    <!--<el-input v-model="editUserForm.email" placeholder="电子邮箱"></el-input>-->
+                <!--</el-form-item>-->
+                <el-form-item label="修改密码" prop="password" label-width="100px">
+                    <el-input v-model="editUserForm.password" placeholder="修改密码" type="password"></el-input>
+                </el-form-item>
+                <el-form-item label="确认密码" prop="password" label-width="100px">
+                    <el-input v-model="editUserForm.repassword" type="password" placeholder="确认密码"
+                              @keyup.enter.native="onEdit('editUserForm')"></el-input>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button size="small" @click="editUser = false">取 消</el-button>
+                <el-button size="small" type="primary" @click="onEdit('editUserForm')">确 定</el-button>
+            </div>
+        </el-dialog>
+
+        <!-- dialog选择分类开始 -->
+        <el-dialog
+                width="835px"
+                title="选择分类"
+                class="class-list-dialog"
+                @close="handleCateCancel"
+                :visible.sync="cateOpen">
+            <div class="class-list clearfix">
+                <ul class="one">
+                    <li class="all">全行业</li>
+                    <li class="a">0-18岁培训</li>
+                    <li class="b">成人培训</li>
+                    <li class="c">学历文凭</li>
+                </ul>
+                <ul class="two">
+                    <li class="all">搜索类别</li>
+                    <template v-for="item in cateList">
+                        <li :key="item.id" :id="item.id" :title="item.value" :class="[item.value === showCateDetail ? 'selectClassTypeTrue' : 'selectClassTypeFalse']" @click="handleHoverCate(item.value)">
+                            {{item.value}}
+                            <span class="triggle" v-show="item.value === showCateDetail"></span>
+                        </li>
+                    </template>
+                </ul>
+                <template v-for="items in cateList">
+                    <ul class="three" v-show="items.value === showCateDetail">
+                        <li class="all">{{items.value}}</li>
+                        <template v-for="item in items.children">
+                            <li :title="item.value">
+                                <span class="left" :key="item.id" :id="item.id" :class="cateSelected.indexOf(item.id) !== -1 ? 'selectClassOneTrue' : 'selectClassOneFalse'" @click="handleSelectCate(item.id)">{{item.value}}</span>
+                                <ul class="right">
+                                    <template v-for="i in item.children">
+                                        <li :title="i.value" :key="i.id" :id="i.id" :class="cateSelected.indexOf(i.id) !== -1 ? 'selectClassOneTrue' : 'selectClassOneFalse'" @click="handleSelectCate(i.id)">{{i.value}}</li>
+                                    </template>
+                                </ul>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+            </div>
+            <div slot="footer">
+                <el-button size="mini" @click="handleCateCancel">取 消</el-button>
+                <el-button size="mini" type="primary" @click="handleCateConfirm" >确 定</el-button>
+            </div>
+        </el-dialog>
+        <!-- dialog选择分类结束 -->
+
+        <el-dialog title="员工个人详情" :visible.sync="addRole" width="30%" size="mini" center>
+            <el-form size="small" :model="addRoleForm" label-width="80px">
+                <el-form-item label="用户名称" prop="user_name" label-width="100px">
+                    <el-input v-model="addRoleForm.user_name" placeholder="用户名"></el-input>
+                </el-form-item>
+                <el-form-item label="电子邮箱" prop="email" label-width="100px">
+                    <el-input v-model="addRoleForm.email" placeholder="电子邮箱"></el-input>
+                </el-form-item>
+                <el-form-item label="职位：" label-width="100px">
+                    <el-select
+                            v-model="addRoleForm.selected"
+                            collapse-tags
+                            multiple
+                            placeholder="请选择">
+                        <el-option
+                                v-for="item in addRoleForm.roleOptions"
+                                :key="item.value"
+                                :label="item.label"
+                                :value="item.value">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="部门：" label-width="100px">
+                  <el-tree
+                      ref="user_tree"
+                      :data="dpOptions"
+                      show-checkbox
+                      default-expand-all
+                      :indent="indent_user"
+                      node-key="id"
+                      @check-change="handleCheckChange"
+                      :default-checked-keys="addRoleForm.dp_id">
+                  </el-tree>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button size="small" @click="addRole = false">取 消</el-button>
+                <el-button size="small" type="primary" @click="onRole">确 定</el-button>
+            </div>
+        </el-dialog>
+
+        <!-- 表格 -->
+        <table-wrap>
+            <el-table
+                    ref="user_table"
+                    key="user_table"
+                    :data="tableData"
+                    size="mini"
+                    :height="tabTableHeight">
+                <el-table-column
+                        label="员工编号"
+                        sortable
+                        prop="user_id">
+                </el-table-column>
+                <el-table-column
+                        label="账号名称"
+                        prop="login_name">
+                </el-table-column>
+                <el-table-column
+                        label="人员名称"
+                        prop="user_name">
+                </el-table-column>
+                <el-table-column
+                        label="人员状态"
+                        prop="status">
+                </el-table-column>
+                <el-table-column
+                        label="电子邮箱"
+                        width="200px"
+                        prop="email">
+                </el-table-column>
+                <el-table-column label="操作" width="480px" header-align="center">
+                    <template slot-scope="scope">
+                        <el-button type="text" plain size="mini" icon="el-icon-edit"
+                                   @click="handleEdit(scope.$index, scope.row)" :disabled=!buttonControl.userinfoedit>修改密码
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-news"
+                                   @click="handleAddRole(scope.$index, scope.row)" :disabled=!buttonControl.rolesusertorole>详情
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-search"
+                                   @click.native="handleCate(scope.$index, scope.row)" :disabled=!buttonControl.rolescategory>关键词分类
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-delete"
+                                   @click="handleDelete(scope.$index, scope.row)" :disabled=!buttonControl.userinfodelete>删除
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-setting"
+                                   @click="handleLogin(scope.$index, scope.row)" v-show="is_admin">模拟登录
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+
+        <!-- 分页 -->
+        <pagination-wrap>
+            <new-pagination
+                    :total="paginationData.total"
+                    :propCurrentPage="paginationData.currentPage"
+                    @initPaginationData="showPaginationData"
+                    @handleSizeChange="showSizeChange"
+                    @handleCurrentChange="showCurrentChange"
+            />
+        </pagination-wrap>
+    </page-wrap>
+</template>
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import paginationWrap from './../../components/pageStructure/paginationWrap.vue'
+    import NewPagination from './../../components/base/NewPagination.vue'
+    import {mapState} from 'vuex'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, TableWrap, paginationWrap, NewPagination
+        },
+        data() {
+            return {
+                addRoleForm: {
+                    user_name:"",
+                    email:"",
+                    selected: {},
+                    roleOptions: {},
+                    dp_id:[],
+                },
+                dpOptions:{},
+                is_admin:false,
+                searchData: {
+                    user_name: '',
+                    user_id: '',
+                },
+                addUserForm: {
+                    user_name: '',
+                    login_name: '',
+                    email: '',
+                    password: '',
+                },
+                editUserForm: {
+//                    user_name: '',
+                    repassword: '',
+//                    email: '',
+                    password: '',
+                },
+                userid: '',
+                tableData: [],
+                buttonControl:[],
+                rules: {
+                    login_name: [
+                        {required: true, message: '请输入登录名', trigger: 'blur'},
+                        {min: 5, message: '登录名必须大于5位', trigger: 'blur,change'}
+                    ],
+                    user_name: [
+                        {required: true, message: '请输入用户名', trigger: 'blur'},
+                        {min: 2, message: '用户名必须大于5位', trigger: 'blur,change'}
+                    ],
+                    password: [
+                        {required: true, message: '请输入密码', trigger: 'blur'},
+                        {min: 6, message: '密码必须大于6位', trigger: 'blur,change'}
+                    ],
+                    email: [
+                        {type: 'email', message: '请输入标准邮箱地址', trigger: 'blur,change'}
+                    ],
+                },
+                paginationData: {},
+                addUser: false,
+                editUser: false,
+                addRole: false,
+
+                cateOpen:false,
+                cateList: [],
+                cateSelected:[],
+                showCateDetail: '',
+                cateUser:0,
+                indent_user:10,
+            }
+        },
+        computed: {
+            ...mapState('navTabs', [
+                'tabTableHeight'
+            ])
+        },
+        mounted() {
+            this.initSearchData()
+            this.onSubmit()
+        },
+        methods: {
+            initSearchData() {
+                this.searchData.user_name = '';
+                this.searchData.user_id = '';
+            },
+            showPaginationData(data) {
+                this.paginationData.pageSizes = data.pageSizes
+                this.paginationData.pageSize = data.pageSize
+                this.paginationData.currentPage = data.currentPage
+            },
+            onSubmit(action) {
+                let that = this
+                if (action !== 'changeCurrentPage') {
+                    that.paginationData.currentPage = 1
+                }
+                if (action !== 'changeSort' && action !== 'changeCurrentPage') {
+                    that.$refs.user_table.clearSort()
+                }
+                this.$ajax.post('/userinfo/index', {search: this.searchData, page: this.paginationData})
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.tableData = res.data.tableData
+                            that.paginationData.total = res.data.total;
+                            that.dpOptions = res.data.dpOptions
+                            that.buttonControl = res.data.buttonControl;
+                            that.is_admin = res.data.is_admin;
+                        }
+                    })
+                    .catch(function (err) {
+                    })
+            },
+            onClear() {
+                this.initSearchData()
+                this.onSubmit()
+            },
+            onAdd(formName) {
+                const self = this;
+                self.$refs[formName].validate((valid) => {
+                    if (valid) {
+                        self.$ajax.post('/userinfo/add', self.addUserForm)
+                            .then(function (res) {
+                                if (res.status === 200) {
+                                    self.$message({
+                                        message: res.data,
+                                        type: 'success'
+                                    });
+                                }
+                                self.addUserForm.user_name = '';
+                                self.addUserForm.login_name = '';
+                                self.addUserForm.password = '';
+                                self.addUserForm.email = '';
+                                self.addUser = false;
+                                self.onSubmit();
+                            })
+                            .catch(function (err) {
+                                self.$message.error('添加用户错误，请重试!');
+                                self.addUserForm.user_name = '';
+                                self.addUserForm.login_name = '';
+                                self.addUserForm.password = '';
+                                self.addUserForm.email = '';
+                                self.addUser = false;
+                            });
+                    } else {
+                        return false
+                    }
+                });
+            },
+            onEdit(formName) {
+                const self = this;
+                self.$refs[formName].validate((valid) => {
+                    if (valid) {
+//                        if (self.editUserForm.user_name.length < 2) {
+//                            self.$message.error('用户名需大于2位!');
+//                            return false;
+//                        }
+                        if (self.editUserForm.password.length < 6) {
+                            self.$message.error('密码需大于6位!');
+                            return false;
+                        }
+                        if (self.editUserForm.repassword !== self.editUserForm.password) {
+                            self.$message.error('两次密码不一致!');
+                        } else {
+                            self.$ajax.post('/userinfo/edit', {"data": self.editUserForm, "userid": self.userid})
+                                .then(function (res) {
+                                    if (res.status === 200) {
+                                        self.$message({
+                                            message: '编辑用户成功',
+                                            type: 'success'
+                                        });
+                                    }
+                                    self.editUserForm.user_name = '';
+                                    self.editUserForm.repassword = '';
+                                    self.editUserForm.password = '';
+                                    self.editUserForm.email = '';
+                                    self.editUser = false;
+                                    self.onSubmit();
+                                })
+                                .catch(function (err) {
+                                    self.$message.error('编辑用户错误，请重试!');
+                                    self.editUserForm.user_name = '';
+                                    self.editUserForm.repassword = '';
+                                    self.editUserForm.password = '';
+                                    self.editUserForm.email = '';
+                                    self.editUser = false;
+                                });
+                        }
+                    } else {
+                        return false
+                    }
+                });
+            },
+            onRole() {
+                let that = this;
+                this.$ajax.post('roles/usertorole',
+                    {selected: this.addRoleForm.selected, user_id: this.userid,dp_id:this.addRoleForm.dp_id,user_name:this.addRoleForm.user_name,email:this.addRoleForm.email})
+                    .then(function (res) {
+                        that.$message({
+                            message: res.data.msg,
+                            type: res.data.type
+                        });
+                        if (res.data.type === 'success') {
+                            that.addRole = false
+                        }
+                    })
+                    .catch(function (err) {
+                    })
+            },
+            handleEdit(index, row) {
+                this.editUser = true;
+                this.userid = row['user_id'];
+                this.editUserForm.user_name = row["user_name"];
+                this.editUserForm.email = row["email"];
+            },
+            handleAddRole(index, row) {
+                let that = this
+                that.addRole = true;
+                that.userid = row['user_id'];
+                this.$ajax.post('roles/usertorole', {type: 1, id: this.userid})
+                    .then(function (res) {
+                        that.addRoleForm.roleOptions = res.data.options;
+                        that.addRoleForm.selected = res.data.selected;
+                        if(res.data.dp_id ===0){
+                            res.data.dp_id =[];
+                        }else{
+                            res.data.dp_id = [res.data.dp_id]
+                        }
+                        that.addRoleForm.dp_id = res.data.dp_id;
+                        that.addRoleForm.user_name = res.data.user_name;
+                        that.addRoleForm.email = res.data.email;
+                        that.$refs.user_tree.setCheckedKeys(res.data.dp_id)
+                    })
+            },
+            handleCheckChange(data, checked, indeterminate) {
+//                if(data.children !== undefined){
+//                    return;
+//                }
+                if(checked){
+                    if(this.addRoleForm.dp_id.indexOf(data.id) === -1){
+                        this.addRoleForm.dp_id = [data.id];
+                        this.$refs.user_tree.setCheckedKeys([data.id])
+                    }
+                }else{
+                    let i=  this.addRoleForm.dp_id.indexOf(data.id);
+                    if(i !== -1){
+                        this.addRoleForm.dp_id.splice(i,1)
+                    }
+                }
+                console.log(this.addRoleForm.dp_id);
+            },
+            handleCateConfirm() {
+                let that = this
+                console.log(this.cateSelected);
+                this.$ajax.post('roles/category', {user_id: this.cateUser, cate: this.cateSelected})
+                    .then(function (res) {
+                        that.cateOpen = false
+                        that.$message(res.data)
+                    })
+            },
+            handleCate(index, row) {
+                let that = this
+                this.cateUser = row.user_id
+                this.$ajax.get('/roles/category?id='+row.user_id)
+                    .then(function(res) {
+                        if (res.data !== undefined) {
+                            that.cateList = res.data.classList
+                            that.cateSelected = res.data.cateSelected
+                            that.cateOpen = true
+                        }
+                    })
+                    .catch(function(err) {
+
+                    })
+            },
+            handleHoverCate (val) {
+                this.showCateDetail = val
+            },
+            handleSelectCate (val) {
+                let i = this.cateSelected.indexOf(val)
+                if( i !== -1){
+                    this.cateSelected.splice(i,1)
+                }else{
+                    this.cateSelected.push(val)
+                }
+            },
+            handleCateCancel () {
+                this.cateOpen = false
+                this.cateSelected = []
+            },
+
+            handleDelete(index, row) {
+                that = this
+                this.$confirm('您确定要删除此账号吗?', '警告', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.$ajax.post('/userinfo/delete', {user_id: row["user_id"]})
+                        .then(function (res) {
+                            if (res.status === 200) {
+                                that.$message({
+                                    message: res.data,
+                                    type: 'success'
+                                });
+                                that.onSubmit();
+                            } else {
+                                that.$message({
+                                    message: res.data,
+                                    type: 'error'
+                                });
+                            }
+                        })
+                        .catch(function (err) {
+                            self.$message.error('删除用户错误，请重试!');
+                        })
+                }).catch(() => {
+                    this.$message({
+                        type: 'info',
+                        message: '已取消'
+                    });
+                });
+            },
+            handleLogin(index, row){
+                let that = this
+                this.$ajax.get('super_login?id='+row.user_id).then(function (res) {
+                    if(res.data.error === 1){
+                        that.$message.error(res.data.msg);
+                    }else{
+                        localStorage.setItem('ms_username',res.data.msg);
+                        localStorage.setItem('is_Super',true);
+                        that.$router.go(0)
+                    }
+                }).catch(function () {
+                    this.$message.error('网络错误，请刷新!');
+                })
+            },
+            showSizeChange(val) {
+                this.paginationData.pageSize = val
+                this.onSubmit()
+            },
+            showCurrentChange(val) {
+                this.paginationData.currentPage = val
+                this.onSubmit('changeCurrentPage')
+            },
+        }
+    }
+</script>
+<style scoped>
+    @import "./../../assets/css/page/lexicon.css";
+</style>

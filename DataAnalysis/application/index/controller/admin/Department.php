@@ -1,0 +1,51 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2018/2/1
+ * Time: 14:01
+ */
+namespace app\index\controller\admin;
+
+use app\index\controller\Base;
+use app\index\model\Departments;
+
+class Department extends Base
+{
+    public function getList(){
+        $model = new Departments();
+        $result = [];
+        $model->getTree($result);
+        return json($result);
+    }
+
+    public function postAdd(){
+        $post = $this->request->post();
+        if(!isset($post['id'])){
+            return json(['error'=>1,'msg'=>'错误的编号']);
+        }
+        if(!isset($post['name'])||$post['name'] == ''){
+            return json(['error'=>1,'msg'=>'部门名称不可为空']);
+        }
+
+        $model = new Departments();
+        $model->dp_name = $post['name'];
+        $model->parent_id = $post['id'];
+        $model->save();
+        return json(['error'=>0,'msg'=>'添加成功','id'=>$model->dp_id,'label'=>$model->dp_name]);
+    }
+
+    public function getDelete(){
+        $id = $this->request->get('id',0);
+        if($id <=0){
+            return json(['error'=>1,'msg'=>'错误编号,请刷新']);
+        }
+        $model= new Departments();
+        $child = [$id];
+        $model->getAllChild($child,$id);
+        Departments::destroy(function ($query)use ($child){
+            $query->where('dp_id','in',$child);
+        });
+        return json(['error'=>0,'msg'=>'删除成功']);
+    }
+}

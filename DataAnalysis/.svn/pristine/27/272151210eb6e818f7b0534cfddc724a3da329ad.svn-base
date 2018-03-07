@@ -1,0 +1,17 @@
+.pageWrap {
+  padding-bottom: 10px;
+}
+.searchWrap .el-checkbox {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.line-chart {
+  width: 98%;
+  margin: 0 auto;
+}
+.line-chart #originalOrder_lineChart {
+  width: 90%;
+  height: 300px;
+  margin: 0 auto;
+}

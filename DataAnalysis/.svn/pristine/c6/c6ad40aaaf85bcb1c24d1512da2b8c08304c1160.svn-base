@@ -1,0 +1,309 @@
+<template>
+    <!-- dialog追踪设置开始 -->
+    <el-dialog
+        width="1000px"
+        title="关键词趋势"
+        @close="handleTrendClose"
+        :visible.sync="openTrendDialog">
+
+        <page-wrap>
+            <!-- 搜索栏 -->
+            <search-wrap>
+                <el-form ref="form" :model="searchData" size="mini">
+                    <el-form-item>
+                        <el-row :gutter="20">
+
+                            <el-col :span="14">
+                                <div class="bg">
+                                    <el-radio-group v-model="dayMark" @change="changeDayMark">
+                                        <el-radio-button label="昨天"></el-radio-button>
+                                        <el-radio-button label="最近7天"></el-radio-button>
+                                        <el-radio-button label="最近30天"></el-radio-button>
+                                    </el-radio-group>
+                                    <el-date-picker
+                                            v-model="searchData.dateTime"
+                                            type="daterange"
+                                            value-format="yyyy-MM-dd"
+                                            @change="changeDate"
+                                            range-separator="至"
+                                            start-placeholder="开始日期"
+                                            end-placeholder="结束日期">
+                                    </el-date-picker>
+                                </div>
+                            </el-col>
+
+                            <el-col :span="5">
+                                <div class="bg">
+                                    <el-input v-model="searchData.keyword" placeholder="请输入关键词" style="width:100%;"></el-input>
+                                </div>
+                            </el-col>
+
+                            <el-col :span="5">
+                                <el-button type="primary" @click="onSubmit">查询</el-button>
+                                <el-button type="danger" @click="onClear">清空</el-button>
+                            </el-col>
+                        </el-row>
+                    </el-form-item>
+                </el-form>
+            </search-wrap>
+
+            <other-wrap>
+                <rectangle :data="trendData1.data" cols="4" :words="trendData1.value" iconType="longwords" iconWidth="100px"/>
+
+                <template v-for="item in trendData2">
+                    <rectangle :data="item.data" cols="4" :words="item.value" iconType="colorBall2" iconWidth="100px" />
+                </template>
+
+
+                <el-card class="lineChart">
+                    <div class="box-card-content">
+                        <div id="trend_LineChart"></div>
+                    </div>
+                </el-card>
+            </other-wrap>
+
+
+        </page-wrap>
+
+        <div>
+            <div slot="footer" style="text-align: center;">
+                <el-button type="primary" plain size="mini" >拓展</el-button>
+                <el-button type="success" plain size="mini" >查看指数</el-button>
+                <el-button type="danger" plain size="mini" @click="handleTrendClose">关闭</el-button>
+            </div>
+        </div>
+    </el-dialog>
+</template>
+
+
+<script>
+    import PageWrap from './../../../components/pageStructure/PageWrap.vue'
+    import OtherWrap from './../../../components/pageStructure/OtherWrap.vue'
+    import SearchWrap from './../../../components/pageStructure/SearchWrap.vue'
+    import Rectangle from './../../../components/pageStructure/Rectangle.vue'
+    import { getDates }  from './../../../assets/js/baseFunc/baseSelfFunc'
+    import { mapState, mapMutations } from 'vuex'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, OtherWrap, Rectangle
+        },
+        props: {
+            show: {
+                type: Boolean,
+                default: false
+            },
+            click: {
+                type: Boolean,
+                default: false
+            },
+            keyword: {
+                type: String,
+                default: ''
+            }
+        },
+        watch: {
+            show() {
+                this.openTrendDialog = this.show
+            },
+            keyword () {
+                this.searchData.keyword = this.keyword
+                this.trendData1.value = this.keyword
+                this.onSubmit()
+            },
+            click() {
+                this.onSubmit()
+            }
+        },
+        data () {
+            return {
+                openTrendDialog: false,
+                searchData: {
+                    dateTime: [],
+                    keyword: ''
+                },
+                trend_LineChart_Data: {
+                  title: '',
+                  time: [],
+                  source: []
+                },
+                trendData1: {
+                    value: '关键词',
+                    data: [
+                        {
+                            title: '当前pc百度排名',
+                            number: 10
+                        },
+                        {
+                            title: '历史pc最高排名',
+                            number: 10
+                        },
+                        {
+                            title: '当前M百度排名',
+                            number: 10
+                        },
+                        {
+                            title: '历史M最高排名',
+                            number: 10
+                        }
+                    ]
+                },
+                trendData2: [
+                    {
+                        value: '追踪1',
+                        data: [
+                            {
+                                title: '当前pc百度排名',
+                                number: 10
+                            },
+                            {
+                                title: '历史pc最高排名',
+                                number: 10
+                            },
+                            {
+                                title: '当前M百度排名',
+                                number: 10
+                            },
+                            {
+                                title: '历史M最高排名',
+                                number: 10
+                            }
+                        ]
+                    },
+                    {
+                        value: '追踪2',
+                        data: [
+                            {
+                                title: '当前pc百度排名',
+                                number: 10
+                            },
+                            {
+                                title: '历史pc最高排名',
+                                number: 10
+                            },
+                            {
+                                title: '当前M百度排名',
+                                number: 10
+                            },
+                            {
+                                title: '历史M最高排名',
+                                number: 10
+                            }
+                        ]
+                    }
+                ],
+                dayMark: '昨天'
+            }
+        },
+        created () {
+            this.init()
+        },
+        computed: {
+            ...mapState('navTabs',[
+                'tabTableHeight'
+            ])
+        },
+        methods: {
+            handleTrendClose() {
+                this.$emit('close')
+            },
+            initSearchData() {
+                this.dayMark = '最近30天'
+                this.searchData.dateTime = [getDates('thirtyDay'), getDates('yesterday')]
+                this.searchData.keyword = ''
+            },
+            init() {
+                this.initSearchData()
+//                this.onSubmit()
+            },
+            onSubmit() {
+                let that = this
+                this.$ajax.post('lexicon/trend',that.searchData)
+                    .then(function(res) {
+                        if (res.data !== undefined) {
+                            that.trendData1 = res.data.trendData1
+                            that.trendData2 = res.data.trendData2
+                            that.trend_LineChart_Data = res.data.trend_LineChart_Data
+                            that.createLineChart()
+                        }
+                    })
+            },
+            createLineChart () {
+                let trend_LineChart_Option = {
+                    tooltip: {
+                        trigger: 'axis'
+                    },
+                    legend: {
+                        data: this.trend_LineChart_Data.title
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '8%',
+                        bottom: '3%',
+                        containLabel: true
+                    },
+                    toolbox: {
+                        feature: {
+                            saveAsImage: {}
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: this.trend_LineChart_Data.time
+                    },
+                    yAxis: {
+                        type: 'value'
+                    },
+                    series: this.trend_LineChart_Data.source
+                }
+                this.$echarts.init(document.getElementById('trend_LineChart')).setOption(trend_LineChart_Option)
+            },
+            onClear() {
+                this.initSearchData()
+                this.onSubmit()
+            },
+            changeDayMark(val) {
+                switch (val) {
+                    case '昨天':
+                        this.searchData.dateTime = [getDates('yesterday'), getDates('yesterday')]
+                        break
+                    case '最近7天':
+                        this.searchData.dateTime = [getDates('sevenDay'), getDates('yesterday')]
+                        break
+                    case '最近30天':
+                        this.searchData.dateTime = [getDates('thirtyDay'), getDates('yesterday')]
+                        break
+                }
+                this.onSubmit()
+            },
+            changeDate(val) {
+                if (val !== null) {
+                    if (val[0] === getDates('yesterday') && val[1] === getDates('yesterday')) {
+                        this.dayMark = '昨天'
+                    } else if (val[0] === getDates('sevenDay') && val[1] === getDates('yesterday')) {
+                        this.dayMark = '最近7天'
+                    } else if (val[0] === getDates('thirtyDay') && val[1] === getDates('yesterday')) {
+                        this.dayMark = '最近30天'
+                    } else {
+                        this.dayMark = ''
+                    }
+                } else {
+                    this.dayMark = ''
+                }
+                this.onSubmit()
+            }
+        }
+
+    }
+</script>
+
+<style>
+    .lineChart {
+        width: 98%;
+    }
+    #trend_LineChart {
+        width: 100%;
+        height: 250px;
+    }
+</style>

@@ -1,0 +1,682 @@
+<?php
+/**
+ * 百度爬虫类
+ * Created by PhpStorm.
+ * User: wdy
+ * Date: 2018/2/26
+ * Time: 16:34
+ */
+
+namespace app\common;
+
+use app\index\model\Account;
+use Sunra\PhpSimple\HtmlDomParser;
+use think\Db;
+use think\Log;
+use think\Exception;
+use think\exception\DbException;
+
+class Spider extends Process
+{
+    private $url = '';
+    private $html = '';
+    private $keyword = '';
+    private $is_self = 0;
+    private $snoopy;
+
+    public function __construct($url = '', $keyword = '')
+    {
+        $this->setUrl($url);
+        $this->setKeyword($keyword);
+        $this->snoopy = new Snoopy();
+        $this->snoopy->maxredirs = 2;
+    }
+
+    public function parse($work)
+    {
+        Log::write('parse handle : ' . $work . PHP_EOL);
+        self::updateBdHx();
+        Log::write('time : ' . $work . 'process has finished.');
+    }
+
+    public function input()
+    {
+        for ($i = 1; $i < 10; $i++) {
+            $this->push($i);
+        }
+    }
+
+    /**
+     * @return string
+     */
+    public function getUrl()
+    {
+        return $this->url;
+    }
+
+    /**
+     * @param string $url
+     * @return $this
+     */
+    public function setUrl($url)
+    {
+        $this->url = $url;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getKeyword()
+    {
+        return $this->keyword;
+    }
+
+    /**
+     * @param string $keyword
+     * @return $this
+     */
+    public function setKeyword($keyword)
+    {
+        $this->keyword = $keyword;
+        return $this;
+    }
+
+
+    /**
+     * 查百度总入口
+     */
+    public function getResults()
+    {
+        $keyword = $this->keyword;
+        $info_pc = $this->requestBaidu($keyword, 0, 0);//pc
+        $this->is_self = 0;
+        $info_m = $this->requestBaidu($keyword, 1, 0);//m
+        return ['info_pc' => isset($info_pc) ? $info_pc : [], '$info_m' => isset($info_m) ? $info_m : []];
+    }
+
+    /*
+     * 请求百度PC/M端排名
+     */
+    public function requestBaidu($keyword, $type, $page)
+    {
+        # 最多尝试10页
+        $rank = 0;
+        $info = [];
+        $init_page = $page;
+        while ($init_page < 10) {
+            $url = $type == 0 ? 'https://www.baidu.com/s?' : 'https://m.baidu.com/s?';
+            $values = ['wd' => $keyword, 'pn' => $init_page * 10];
+            $temp = $this->getPageRank($url, $values, $init_page, $type);
+            if (!empty($temp)) {
+                $info[] = $temp;
+            }
+            if ($this->is_self > 0) {
+                $init_page = 10;
+            } else {
+                $init_page += 1;
+            }
+        }
+        return $info;
+    }
+
+    /**
+     * 获取百度PC/M端排名计算
+     * @param $url
+     * @param $values
+     * @param $page
+     * @param $type
+     * @return array
+     */
+    public function getPageRank($url, $values, $page, $type)
+    {
+
+        $ua_pc = 'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36';
+        $ua_m = 'Mozilla/5.0 (iPhone; CPU iPhone OS 11_0_2 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Mobile/15A421';
+        $this->snoopy->agent = $type == 0 ? $ua_pc : $ua_m;
+        $param = http_build_query($values);
+        $final_url = $url . $param;
+        try {
+            $op = Db::table('opponent')->field('op_id,op_domain')->select();
+            if (empty($op)) {
+                $op = ['opd_id' => 1, 'op_domain' => 'houxue.com'];
+            }
+        } catch (Exception $e) {
+        }
+
+        // 初始化
+        $result = [];
+        $rank = 0;
+        $op_id = 0;
+        $real_link = '';
+
+        // 获得需要解析的页面html
+        $html = $this->snoopy->fetch($final_url)->getResults();
+        try {
+            $dom = HtmlDomParser::str_get_html($html);
+            if ($type == 0) { // pc
+                $list = $dom->find('.f13');// 百度搜索结果列表
+                $links = [];
+                foreach ($list as $k => $v) {
+                    $a = $v->find('.c-showurl');
+                    if (empty($a)) {
+                        continue;
+                    }
+                    $link = $a[0]->getAttribute('href');
+                    $real_link = get_redirect_url($link);// 真实网址
+                    $links[] = $real_link;
+                }
+                foreach ($links as $k => $v) {
+                    if (strpos($v, 'houxue.com')) {
+                        $rank = $page * 10 + ($k + 1);
+                        $this->is_self = 1;
+                        $result[] = ['rank_pc' => $rank, 'url_pc' => $v, 'op_id' => $op_id];
+                        break;
+                    }
+                    foreach ($op as $k1 => $v1) {
+                        if (strpos($v, $v1['op_domain'])) {
+                            $rank = $page * 10 + ($k + 1);
+                            $op_id = $v1['op_id'];
+                            $result[] = [
+                                'rank_pc' => $rank,
+                                'url_pc' => $real_link,
+                                'op_id' => $op_id
+                            ];
+                        }
+                    }
+                }
+            } else { // m
+                $list = $dom->find('div[class=c-showurl c-line-clamp1]');// 百度搜索结果列表
+                $links = [];
+                $real_link_m = '';
+                foreach ($list as $k => $v) {
+                    $t = $v->find('a');
+                    $href = $t[0]->getAttribute('href');
+                    if (!empty($href)) {
+                        $real_link_m = get_redirect_url($href);// 真实网址
+                        $links[] = $real_link_m;
+                    }
+                }
+                foreach ($links as $k => $v) {
+                    if (strpos($v, 'houxue.com')) {
+                        $rank = $page * 10 + ($k + 1);
+                        $this->is_self = 1;
+                        $result[] = ['rank_pc' => $rank, 'url_pc' => $v, 'op_id' => $op_id];
+                        break;
+                    }
+                    foreach ($op as $k1 => $v1) {
+                        if (strpos($v, $v1['op_domain'])) {
+                            $rank = $page * 10 + ($k + 1);
+                            $op_id = $v1['op_id'];
+                            $result[] = [
+                                'rank_pc' => $rank,
+                                'url_pc' => $real_link_m,
+                                'op_id' => $op_id
+                            ];
+                        }
+                    }
+                }
+            }
+
+        } catch (\Exception $e) {
+        }
+        return $result;
+    }
+
+    /**
+     * 更新百度、厚学
+     * @return array|bool
+     */
+    public static function updateBdHx()
+    {
+        set_time_limit(0);//设定脚本无超时时间
+        ini_set("memory_limit", "2048M");//设置脚本可用最大内存
+
+        // ===step 0: 初始化，先检查是否有进行中的任务(status: 0:创建；1:运行中;2:完成;3:作废)
+        $time_now = date('Y-m-d H:i:s', time());
+        $no_date = '0000-00-00 00:00:00';
+        // 一次取5个待计算的关键词
+        $limit = 5;
+        try {
+            $data = Db::table('keywords')->where('update_time', '=', $no_date)
+                ->where('status', '=', 0)
+                ->field('kw_id,keyword')->limit($limit)->select();
+        } catch (DbException $e) {
+            return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString() . $e->getTraceAsString()];
+        }
+        $kw_id_arr = Utility::arrayToSingleByIndex($data, 'kw_id');
+        $keyword_arr = Utility::arrayToSingleByIndex($data, 'keyword');
+        // 标记这5条为计算中
+        try {
+            Db::table('keywords')->where('kw_id', 'in', $kw_id_arr)->update(['status' => 1]);
+        } catch (Exception $e) {
+            return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString()];
+        }
+        // 处理关键词，去掉潜在的中英文逗号
+        foreach ($keyword_arr as $k => $v) {
+            $temp = str_replace('，', '', $v);
+            $temp = str_replace(',', '', $temp);
+            $keyword_arr[$k] = $temp;
+        }
+
+        //===step 1:获取百度指数统计量（pc/m) + 获取百度排名、域名
+        $result_bd = [];
+        $mdl = new Account();
+        foreach ($keyword_arr as $k => $v) {
+            $bd_rank = $mdl->getBaiduRank($v);//百度排名
+            Log::write($bd_rank);
+            $bd_index = $mdl->getBaiduIndex($v);//百度指数
+            Log::write($bd_index);
+            $update_arr = [
+                'baidu_index_pc' => $bd_index[0],//百度指数pc
+                'baidu_index_m' => $bd_index[1],//百度指数m
+                'update_time' => $time_now,//更新时间
+                'is_archive' => ($bd_index[0] + $bd_index[1] == 0) ? 0 : 1,//是否被收录
+                'baidu_rank_pc' => $bd_rank['info_pc'],//数组，含本身及其竞争对手(pc)
+                'baidu_rank_m' => $bd_rank['info_m']//数组，含本身及其竞争对手(m)
+            ];
+            $result_bd[] = $update_arr;
+            Log::write('-----1.百度指数、百度排名-------');
+            Log::write($result_bd);
+        }
+
+        //===step 2: 厚学关键词
+        $post = ['kws' => json_encode($keyword_arr)];
+        $res = Utility::remoteUploadWithCurl('http://api.houxue.com/jsonapi/keywords/list', $post, 0, 1);
+        $res = json_decode($res, true);
+        $result_hx = $res['data'];
+        Log::write('-----2.厚学关键词-------');
+        Log::write($result_hx);
+        //===step 3: 更新step1/2查到的数据
+        // 3.1:百度指数、排名
+        if (!empty($result_bd)) {
+            foreach ($result_bd as $k => $v) {
+                try {
+                    // 更新keywords表
+                    Db::table('keywords')->where('kw_id', '=', $kw_id_arr[$k])->update($v);
+                    // 处理数据，插入keywords_crawl_log表
+                    $temp_pc = [];
+                    $temp_m = [];
+                    //pc竞争对手按op_id去重
+                    foreach ($v['baidu_rank_pc'] as $k1 => $v1) {
+                        $temp_pc[$v1['op_id']] = $v1;
+                    }
+                    //m竞争对手按op_id去重
+                    foreach ($v['baidu_rank_m'] as $k1 => $v1) {
+                        $temp_m[$v1['op_id']] = $v1;
+                    }
+                    // 合并pc/m数组
+                    $temp_final = $temp_pc;
+                    foreach ($temp_m as $k1 => $v1) {
+                        if (!isset($temp_final[$k1])) {
+                            $temp_final[$k1] = $temp_m[$k1];
+                            $temp_final[$k1]['url_pc'] = '';
+                            $temp_final[$k1]['rank_pc'] = 0;
+                        } else {
+                            $temp_final[$k1] = array_merge($temp_final[$k1], $temp_m[$k1]);
+                        }
+                    }
+                    foreach ($temp_pc as $k1 => $v1) {
+                        if (!isset($temp_m[$k1])) {
+                            $temp_final[$k1]['url_m'] = '';
+                            $temp_final[$k1]['rank_m'] = 0;
+                        }
+                    }
+                    // 合并完成
+                    foreach ($temp_final as $k1 => $v1) {
+                        // 记录每一次更新的日志
+                        $kcl = [
+                            'create_time' => $v['update_time'],
+                            'kw_id' => $kw_id_arr[$k],
+                            'index' => $v['baidu_index_pc'],
+                            'index_m' => $v['baidu_index_m'],
+                            'op_id' => $k1,
+                            'url' => $v1['url_pc'],
+                            'url_m' => $v1['url_m'],
+                            'rank' => $v1['rank_pc'],
+                            'rank_m' => $v1['rank_m'],
+                        ];
+                        Db::table('keywords_crawl_log')->insert($kcl);
+                    }
+                } catch (\Exception $e) {
+                    return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString()];
+                }
+            }
+        }
+        // 3.2:厚学统计
+        $data_arr = ['update_time' => $time_now];
+        if (empty($result_hx)) {
+            try {
+                Db::table('keywords')->where('kw_id', 'in', $kw_id_arr)->update($data_arr);
+            } catch (\Exception $e) {
+                return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString()];
+            }
+        } else {
+            $sql = '';
+            $kwd_id_insert = [];
+            $time_now = date('Y-m-d H:i:s', time());
+            foreach ($result_hx as $k => $v) {
+                try {
+                    $kw_id = $kw_id_arr[$k];
+                    // 更新第一部分：keywords表
+                    $kw_arr = [
+                        'school_index' => $v['school_index'],
+                        'course_index' => $v['course_index'],
+                        'news_index' => $v['news_index'],
+                        'hotnews_index' => $v['hotnews_index'],
+                        'zhidao_index' => $v['zhidao_index'],
+                        'mschool_index' => $v['mschool_index'],
+                        'mcourse_index' => $v['mcourse_index'],
+                        'mnews_index' => $v['mnews_index'],
+                        'mhotnews_index' => $v['mhotnews_index'],
+                        'mzhidao_index' => $v['mzhidao_index'],
+                        'update_time' => $time_now,
+                    ];
+                    Db::table('keywords')->where('kw_id', '=', $kw_id)->update($kw_arr);
+
+                    // 更新第二部分：keywords_detail表
+                    // 学校pc
+                    if (!empty($v['school_data'])) {
+                        foreach ($v['school_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",1,'" . $value['url'] . "',1,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+
+                    // 学校m
+                    if (!empty($v['mschool_data'])) {
+                        foreach ($v['mschool_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",2,'" . $value['url'] . "',1,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    // 课程pc
+                    if (!empty($v['course_data'])) {
+                        foreach ($v['course_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",1,'" . $value['url'] . "',2,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    // 课程m
+                    if (!empty($v['mcourse_data'])) {
+                        foreach ($v['mcourse_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",2,'" . $value['url'] . "',2,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    // 新闻pc
+                    if (!empty($v['news_data'])) {
+                        foreach ($v['news_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",1,'" . $value['url'] . "',3,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    // 新闻m
+                    if (!empty($v['mnews_data'])) {
+                        foreach ($v['mnews_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",2,'" . $value['url'] . "',3,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    // 头条pc
+                    if (!empty($v['hotnews_data'])) {
+                        foreach ($v['hotnews_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",1,'" . $value['url'] . "',4,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    // 头条m
+                    if (!empty($v['mhotnews_data'])) {
+                        foreach ($v['mhotnews_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",2,'" . $value['url'] . "',4,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    // 知道pc
+                    if (!empty($v['zhidao_data'])) {
+                        foreach ($v['zhidao_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",1,'" . $value['url'] . "',5,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    // 知道m
+                    if (!empty($v['mzhidao_data'])) {
+                        foreach ($v['mzhidao_data'] as $key => $value) {
+                            $sql .= "insert into keywords_detail (kw_id,dstype,url,type,title,is_cooperate,update_time) values (";
+                            $sql .= $kw_id . ",2,'" . $value['url'] . "',5,'" . $value['title'] . "'," . $value['is_cooperate'] . ",'" . $time_now . "')";
+                            $sql .= " ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)," . "url = '" . $value['url']
+                                . "'," . "is_cooperate = " . $value['is_cooperate']
+                                . "," . "update_time = '" . $time_now
+                                . "';" . PHP_EOL;
+                        }
+                    }
+                    if ($sql) {
+                        $kwd_arr = explode(';' . PHP_EOL, $sql);
+                        array_pop($kwd_arr);
+                        foreach ($kwd_arr as $k1 => $v1) {
+                            try {
+                                Db::execute($v1);
+                                $kwd_id_insert[] = Db::getLastInsID();
+                            } catch (\Exception $e) {
+                                Log::write($e->getMessage() . $e->getTraceAsString());
+                                return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString()];
+                            }
+                        }
+                    }
+                    $sql = '';//清空
+
+                    // 插入成功的ID记录，更新kw_num,density,is_alive
+                    if (!empty($kwd_id_insert)) {
+                        $kwd_range = '(' . implode(',', $kwd_id_insert) . ')';
+                        foreach ($kwd_id_insert as $k1 => $kwd_id) {
+                            $temp = Db::table("keywords_detail kd")->join("keywords k", "kd.kw_id  = k.kw_id", 'LEFT')
+                                ->where('kd.id', 'EXP', 'IN' . $kwd_range)
+                                ->field('kd.url as url,k.keyword as keyword')->select();
+                            // 获取kw_num,density,is_alive
+                            if (isset($temp[$k1])) {
+                                $data = self::getWordDetail($temp[$k1]['url'], $temp[$k1]['keyword']);
+                                Log::write('-----kw_num,density,is_alive-------');
+                                Log::write($data);
+                                if (!empty($data)) {
+                                    // 更新该记录的kw_num,density,is_alive
+                                    try {
+                                        Db::table('keywords_detail')->where('id', '=', $kwd_id)->update($data);
+                                    } catch
+                                    (\Exception $e) {
+                                        return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString()];
+                                    }
+                                }
+                            }
+                        }
+                        $kwd_id_insert = [];//清空
+                    }
+                } catch
+                (\Exception $e) {
+                    return ['type' => 'error', 'msg' => '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString()];
+                }
+            }
+        }
+        //===step 4: 更新统计量
+        foreach ($keyword_arr as $k => $v) {
+            // 搜索词模糊匹配
+//            $kws_id_range = Utility::arrayToSingleByIndex(Db::query('SELECT kws_id FROM keywords_search WHERE keyword LIKE \'%' . $v . '%\''), 'kws_id');
+            $kws_id_range = Db::table('keywords_search')->where('keyword', 'like', '%' . $v . '%')->column('kws_id');
+            if ($kws_id_range) {
+                $kws_id_range = '(' . implode(',', $kws_id_range) . ')';
+                // 查该关键词对应的pc/m搜索量
+//                $num_pc = Db::table('keyword_statistics')->where('dstype', '=', 1)->where('kws_id', 'EXP', 'IN' . $kws_id_range)->field('SUM(num) as num')->value('num', 0);
+                $num_pc = Db::table('keyword_statistics')->where('dstype', '=', 1)->where('kws_id', 'IN', $kws_id_range)->sum('num');
+//                $num_m = Db::table('keyword_statistics')->where('dstype', '=', 2)->where('kws_id', 'EXP', 'IN' . $kws_id_range)->field('SUM(num) as num')->value('num', 0);
+                $num_m = Db::table('keyword_statistics')->where('dstype', '=', 2)->where('kws_id', 'IN', $kws_id_range)->sum('num');               // 更新
+                try {
+                    $update_arr = ['kws_count_pc' => $num_pc, 'kws_count_m' => $num_m];
+                    Log::write('-----4.统计量-------');
+                    Log::log($update_arr);
+                    Db::table('keywords')->where('kw_id', '=', $kw_id_arr[$k])->update($update_arr);
+                } catch
+                (\Exception $e) {
+                    return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString()];
+                }
+            }
+        }
+        //===step 5: 计算综合评分
+        foreach ($kw_id_arr as $k => $v) {
+            try {
+                $param = Db::table('keywords')->where('kw_id', '=', $v)
+                    ->field('url_pc,url_m,baidu_rank_pc,baidu_rank_m')->find();
+                // pc端
+                $is_hightrans_pc = Utility::isTransform($param['url_pc'], true);//是否是高转化，网址正则判断
+                $is_cooperate_pc = self::getCooperate($param['url_pc']);//是否为合作,1是2否
+                $score_pc = self::getScore($param['baidu_rank_pc'], $is_hightrans_pc, $is_cooperate_pc);//综合评分
+
+                // m端
+                $is_hightrans_m = Utility::isTransform($param['url_m'], false);//是否是高转化，网址正则判断
+                $is_cooperate_m = self::getCooperate($param['url_m']);//是否为合作,1是2否
+                $score_m = self::getScore($param['baidu_rank_m'], $is_hightrans_m, $is_cooperate_m);//综合评分
+
+                $update_arr = [
+                    "is_hightrans_pc" => $is_hightrans_pc,
+                    "is_cooperate_pc" => $is_cooperate_pc,
+                    "score_pc" => $score_pc,
+                    "is_hightrans_m" => $is_hightrans_m,
+                    "is_cooperate_m" => $is_cooperate_m,
+                    "score_m" => $score_m
+                ];
+                Log::write('-----5.综合评分-------');
+                Log::log($update_arr);
+                Db::table('keywords')->where('kw_id', '=', $v)->update($update_arr);
+            } catch (Exception $e) {
+                return ['type' => 'error', 'msg' => $e->getMessage() . $e->getTraceAsString()];
+            }
+        }
+        // 全部结束
+        // 标记这5条为计算完成
+        try {
+            Db::table('keywords')->where('kw_id', 'in', $kw_id_arr)->update(['status' => 2]);
+        } catch (Exception $e) {
+            return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage() . $e->getTraceAsString()];
+        }
+        // 返回
+        return true;
+    }
+
+    /**
+     * 根据url获取html网址，返回统计的关键词出现次数、频度、是否收录
+     * @param string $url
+     * @param string $keyword
+     * @return array|bool
+     */
+    public static function getWordDetail($url = '', $keyword = '')
+    {
+        if (!$url || !$keyword) {
+            return false;
+        }
+        // step 1: 该网页中，该关键词出现次数、频度
+        $kw_num = $density = $is_alive = 0;
+        $snoopy = new Snoopy();
+        $snoopy->fetchtext($url);
+        if (($snoopy->status) == "200") {
+            $res = $snoopy->results;
+            $length = mb_strlen($res, "utf-8");// 正文总长度
+            if ($length < 1) {
+                return false;// 无内容
+            }
+            if ($length > strlen($keyword)) {// 一定是真包含
+                $kw_num = substr_count($res, $keyword);// 关键词出现次数
+            }
+            $density = round(($kw_num * strlen($keyword) / $length), 2);// 关键词频度
+        }
+
+        // step 2: 该网址是否被百度收录
+        $bd_url = "https://www.baidu.com/s?wd=" . $url;
+        $res = Utility::curlRequest($bd_url);
+        $flag = "<div class=\"c-abstract\">";
+        if (strpos($res, $flag) == true) {
+            $is_alive = 1;// 已收录
+        } else {
+            $is_alive = 0;// 未收录
+        }
+        return ['kw_num' => $kw_num, 'density' => $density, 'is_alive' => $is_alive];
+    }
+
+    /**
+     * 计算综合评分
+     * @param $rank
+     * @param $is_hightrans
+     * @param $is_cooperate
+     * @return int
+     */
+    public static function getScore($rank, $is_hightrans, $is_cooperate)
+    {
+        $score = 5;//默认毫无推广
+        //评分等级：1:完美推广 2:一步之遥 3:初见成效 4:无效推广 5:毫无推广
+        if ($rank == 1 && $is_hightrans == 1 && $is_cooperate == 1) {
+            $score = 1;
+        } elseif (($rank > 1 && $rank < 3) && $is_hightrans == 1 && $is_cooperate == 1) {
+            $score = 2;
+        } elseif (($rank > 3 && $rank < 11) && $is_hightrans == 1 && $is_cooperate == 1) {
+            $score = 3;
+        } elseif (($rank > 0 && $rank < 11) && $is_hightrans == 0 && $is_cooperate == 0) {
+            $score = 4;
+        }
+        return $score;
+    }
+
+    /**
+     * 根据url查询是否为合作链接
+     * @param $url
+     * @return int
+     */
+    public static function getCooperate($url)
+    {
+        $post = ['url' => json_encode([$url])];
+        $res = Utility::remoteUploadWithCurl('http://api.houxue.com/jsonapi/keywords/iscooperate', $post, 0, 1);
+        $result = json_decode($res, true);
+
+        if ($result['code'] == 200) {
+            if ($result['data'][0] == 1) {
+                return 1;//合作
+            } else {
+                return 2;//非合作
+            }
+        } else {
+            return 2;
+        }
+    }
+}

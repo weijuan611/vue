@@ -1,0 +1,16 @@
+.rect ul.keywordDataDetail {
+  width: 100%;
+  min-width: 900px;
+}
+.rect ul.keywordDataDetail li {
+  width: 14%;
+  height: 58px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 28px;
+}
+.rect ul.keywordDataDetail li p:last-child {
+  font-size: 15px;
+  font-weight: bold;
+  color: #b81717;
+}

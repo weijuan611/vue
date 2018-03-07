@@ -1,0 +1,134 @@
+/*数据分析小组件*/
+.data-analysis-block {
+  width: 100%;
+  display: inline-block;
+}
+.data-analysis-block p {
+  text-align: center;
+  margin: 3px 0;
+  font-size: 14px;
+}
+.data-analysis-block p.number {
+  font-weight: bold;
+  font-size: 20px;
+  line-height: 30px;
+  color: #b81717;
+}
+.data-analysis-block p.compare {
+  font-size: 12px;
+  text-align: left;
+  padding-left: 45px;
+}
+.data-analysis-block p.compare span {
+  color: #666;
+}
+.data-analysis-block p.compare i {
+  width: 12px;
+  margin: 0 5px;
+  text-align: left;
+  font-weight: bold;
+  font-size: 14px;
+}
+.data-analysis-block p.compare i.el-icon-sort-up.sort-green {
+  text-indent: -6px;
+  color: green;
+}
+.data-analysis-block p.compare i.el-icon-sort-down.sort-red {
+  text-indent: 2px;
+  color: red;
+}
+
+
+/*卡片小组件*/
+.el-card {
+  display: inline-block;
+  margin: 5px 0.5%;
+}
+.el-card .box-card-head span {
+  font-size: 14px;
+}
+.el-card .el-card__header {
+  padding: 10px 15px;
+}
+.el-card .el-card__header .button {
+  float: right;
+}
+.el-card .el-card__header .button i {
+  margin-left: 3px;
+  cursor: pointer;
+}
+.el-card  .el-card__header .button.el-radio-group .el-radio-button .el-radio-button__inner {
+  padding: 3px 8px;
+}
+
+
+/* 自定义长度占比的矩形块 */
+.percent-rect {
+  display: block;
+  height: 25px;
+  line-height: 25px;
+  width: 100%;
+  background-color: #eee;
+  margin: 15px 0;
+  font-size: 12px;
+}
+.percent-rect > span {
+  color: #666;
+  float: right;
+  margin-top: 2px;
+  margin-right: 5px;
+}
+.percent-rect .bg {
+  display: inline-block;
+  height: 25px;
+  border-radius: 3px;
+}
+.percent-rect .bg > span {
+  color: #333;
+  margin-left: 4px;
+}
+
+/* 自定义评分块 */
+.mark-block {
+  display: inline-block;
+  height: 22px;
+  line-height: 22px;
+  width: 100%;
+  background-color: #eee;
+  font-size: 12px;
+  border-radius: 3px;
+  vertical-align: middle;
+  position: relative;
+}
+.mark-block .bg {
+  display: inline-block;
+  height: 22px;
+  border-radius: 3px 0 0 3px;
+}
+.mark-block > span {
+  color: #fff;
+  position: absolute;
+  left: 5px;
+  top: 1px;
+}
+
+/* 显隐列 */
+.moreTableCols {
+  float: right;
+  margin-right: 10px;
+  position: relative;
+}
+.moreTableCols > div {
+  position: absolute;
+  z-index: 5;
+  right: 0px;
+  top: 30px;
+  background-color: #fff;
+  border: 1px solid #c1cacc;
+  padding: 15px 10px;
+}
+
+.moreTableCols > div .el-checkbox + .el-checkbox {
+  margin-left: 0!important;
+  margin-top: 10px;
+}

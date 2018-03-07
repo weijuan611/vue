@@ -1,0 +1,30 @@
+.rect ul.areaDataDetail {
+  width: 100%;
+  min-width: 900px;
+}
+.rect ul.areaDataDetail li {
+  width: 16%;
+  height: 58px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 28px;
+}
+.rect ul.areaDataDetail li p:last-child {
+  font-size: 15px;
+  font-weight: bold;
+  color: #b81717;
+}
+.map-chart, .pie-chart {
+  width: 48%;
+}
+.map-chart #areaAnalysis_mapChart {
+  width: 100%;
+  height: 300px;
+}
+.pie-chart #areaAnalysis_pieChart {
+  width: 100%;
+  height: 250px;
+}
+.pageWrap {
+  padding-bottom: 20px;
+}

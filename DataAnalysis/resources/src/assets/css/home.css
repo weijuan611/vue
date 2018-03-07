@@ -1,0 +1,50 @@
+.rect .data-analysis-block {
+  width: 20%;
+}
+.card-wrap .box-card-content > div {
+  height: 220px;
+}
+.card-wrap .box-card-content .origin {
+  height: 205px;
+}
+
+.visitor-trend {
+  width: 48%;
+}
+.sourse-domain {
+  width: 48%;
+}
+
+.visit-area-ip {
+  width: 48%;
+}
+.visit-area-domain {
+  width: 48%;
+}
+
+.visit-dist {
+  width: 31%;
+}
+.search-engine {
+  width: 31%;
+}
+.key-word {
+  width: 32%;
+}
+
+.sourse-domain-table {
+  width: 48%;
+}
+.search-word-table {
+  width: 48%;
+}
+.visitor-dist-table {
+  width: 48%;
+}
+
+.card-wrap-4 {
+  width: 98%;
+}
+.card-wrap-4 .box-card-content .box-card-content > div {
+  height: 220px;
+}

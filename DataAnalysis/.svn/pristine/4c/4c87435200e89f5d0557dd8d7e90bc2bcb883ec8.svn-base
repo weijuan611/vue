@@ -1,0 +1,299 @@
+<?php
+namespace app\index\model;
+use app\index\controller\Zlog;
+use think\Db;
+use think\Log;
+use think\Request;
+
+
+class Mobserveorder extends Base
+{
+    public static function getlist()
+    {
+        $request = Request::instance()->post();
+        $datetime_1["start_time"] = !empty($request["dateTime"][0])?$request["dateTime"][0]:date("Y-m-d");
+        $datetime_1["end_time"] = !empty($request["dateTime"][1])?$request["dateTime"][1]:date("Y-m-d");
+        $datetime_2["start_time"] = !empty($request["dateTime2"][0])?$request["dateTime2"][0]:date("Y-m-d");
+        $datetime_2["end_time"] = !empty($request["dateTime2"][1])?$request["dateTime2"][1]:date("Y-m-d");
+        $datetime1 = ["start_time"=>date("Y-m-d 00:00:00",strtotime($datetime_1['start_time'])),"end_time"=>date("Y-m-d 23:59:59",strtotime($datetime_1['end_time']))];
+        $datetime2 = ["start_time"=>date("Y-m-d 00:00:00",strtotime($datetime_2['start_time'])),"end_time"=>date("Y-m-d 23:59:59",strtotime($datetime_2['end_time']))];
+        $compare = !empty($request["compare"])?$request["compare"]:false;
+        if($compare === true){
+            $result = self::compareAnalysis($datetime1,$datetime2);
+            $total = self::getTotal($result,2);
+            $tableData = self::getTableData($result,$total,2);
+            $pieChartData = self::getPiechart($result,2);
+            return ['tableData'=>$tableData,"order1"=>$total['one'],"order2"=>$total['two'],"pieChartData1"=>$pieChartData['one'],"pieChartData2"=>$pieChartData['two']];
+        }else{  //不对比
+            if ($datetime_1["start_time"] == $datetime_1["end_time"]){  //单天
+                $result = self::oneAnalysis($datetime1);
+                $total = self::getTotal($result,1);
+                $tableData = self::getTableData($result,$total,1);
+                $pieChartData = self::getPiechart($result,1);
+                return ['tableData'=>$tableData,"order1"=>$total,"pieChartData"=>$pieChartData];
+            }else{  //多天
+                $result = self::oneAnalysis($datetime_1);
+                $total = self::getTotal($result,1);
+                $x_axis = self::setCoordinateX($datetime1);
+                $lineChartData = self::getchartData($result,$x_axis);
+                $pieChartData = self::getPiechart($result,1);
+                $tableData = self::getTableData($result,$total,1);
+                return ['tableData'=>$tableData,"order1"=>$total,"xdata"=>$x_axis,"lineChartData"=>$lineChartData,"pieChartData"=>$pieChartData];
+            }
+        }
+    }
+
+    public static function compareAnalysis($datetime1,$datetime2)
+    {
+        $result['one'] = Db::table("order_count")->alias("oc")->join("source_order_count soc", "DATE_FORMAT(soc.create_time,'%Y-%c-%d')  = DATE_FORMAT(oc.create_time,'%Y-%c-%d')", 'LEFT')->field("oc.create_time,oc.seat_num,oc.seat_rate,oc.sign_num,oc.sign_rate,oc.tel_num,oc.tel_rate,oc.other_num,oc.other_rate,soc.sum,soc.order_sum,soc.order_rate,soc.order_sum_alone")->whereTime("oc.create_time",'between',[$datetime1["start_time"],$datetime1["end_time"]])->select();
+        $result['two'] = Db::table("order_count")->alias("oc")->join("source_order_count soc", "DATE_FORMAT(soc.create_time,'%Y-%c-%d')  = DATE_FORMAT(oc.create_time,'%Y-%c-%d')", 'LEFT')->field("oc.create_time,oc.seat_num,oc.seat_rate,oc.sign_num,oc.sign_rate,oc.tel_num,oc.tel_rate,oc.other_num,oc.other_rate,soc.sum,soc.order_sum,soc.order_rate,soc.order_sum_alone")->whereTime("oc.create_time",'between',[$datetime2["start_time"],$datetime2["end_time"]])->select();
+        return $result;
+    }
+
+    public static function oneAnalysis($datetime1)
+    {
+        return Db::table("order_count")->alias("oc")->join("source_order_count soc", "DATE_FORMAT(soc.create_time,'%Y-%c-%d')  = DATE_FORMAT(oc.create_time,'%Y-%c-%d')", 'LEFT')->field("oc.create_time,oc.seat_num,oc.seat_rate,oc.sign_num,oc.sign_rate,oc.tel_num,oc.tel_rate,oc.other_num,oc.other_rate,soc.sum,soc.order_sum,soc.order_rate,soc.order_sum_alone")->whereTime('oc.create_time','between',[$datetime1["start_time"],$datetime1["end_time"]])->select();
+    }
+
+    public static function getTotal($result,$rule)
+    {
+        if ($rule == 1){
+            $total = self::setTotalList($result);
+        } else {
+            $total['one'] = self::setTotalList($result['one']);
+            $total['two'] = self::setTotalList($result['two']);
+        }
+        return $total;
+    }
+
+    public static function setTotalList($result)
+    {
+        $total = [
+            ["title"=>"原始单总量","number"=>"0"],
+            ["title"=>"订单总量","number"=>"0"],
+            ["title"=>"订单总量（去重）","number"=>"0"],
+            ["title"=>"原始单-订单转化率","number"=>"0"],
+            ["title"=>"订单-在线坐席（去重）","number"=>"0"],
+            ["title"=>"订单-在线报名（去重）","number"=>"0"],
+            ["title"=>"订单-400电话（去重）","number"=>"0"],
+            ["title"=>"订单-其他（去重）","number"=>"0"],
+        ];
+        $seat_rate = $sign_rate = $tel_rate = $other_rate = 0;
+        $num = count($result);
+        foreach ($result as $key=>$value) {
+            $total[0]['number'] += $value['sum'];
+            $total[1]['number'] += $value['order_sum'];
+            $total[2]['number'] += $value['order_sum_alone'];
+            $total[4]['number'] += $value['seat_num'];
+            $total[5]['number'] += $value['sign_num'];
+            $total[6]['number'] += $value['tel_num'];
+            $total[7]['number'] += $value['other_num'];
+            $seat_rate += $value['seat_rate'];
+            $sign_rate += $value['sign_rate'];
+            $tel_rate += $value['tel_rate'];
+            $other_rate += $value['other_rate'];
+        }
+        $total[3]['number'] = $total[0]['number'] == 0 ? "0(0%)":(round($total[2]['number'] / $total[0]['number'],4)*100)."%";
+        $total[4]['number'] = $seat_rate == 0 ? $total[4]['number']."(0%)":$total[4]['number']."(".(round($seat_rate / $num,4))."%)";
+        $total[5]['number'] = $sign_rate == 0 ? $total[5]['number']."(0%)":$total[5]['number']."(".(round($sign_rate / $num,4))."%)";
+        $total[6]['number'] = $tel_rate == 0 ? $total[6]['number']."(0%)":$total[6]['number']."(".(round($tel_rate / $num,4))."%)";
+        $total[7]['number'] = $other_rate == 0 ? $total[7]['number']."(0%)":$total[7]['number']."(".(round($other_rate / $num,4))."%)";
+        return $total;
+    }
+
+    public static function setCoordinateX($datetime_1)
+    {
+        $time_start = strtotime($datetime_1["start_time"]);
+        $time_end = strtotime($datetime_1["end_time"]);
+        $days = ($time_end - $time_start) / 86400 +1;
+        $time = [];
+        for ($i=0;$i<$days;$i++) {
+            $time[$i] = date("Y-m-d",$time_start + 86400 * $i);
+        }
+        return $time;
+    }
+
+    public static function getchartData($result,$x_axis)
+    {
+        $listarr = [];
+        $validOriginalList = ["name"=>"有效原始单","type"=>"line","yAxisIndex"=>"1","data"=>[]];
+        $originalList = ["name"=>"原始单","type"=>"line","yAxisIndex"=>"1","data"=>[]];
+        $uv = ["name"=>"UV","type"=>"bar","data"=>[]];
+        foreach ($result as $item=>$info){
+            $time_now = date("Y-m-d",strtotime($info["create_time"]));
+            $listarr[$time_now] = $info;
+        }
+        foreach ($x_axis as $key=>$value){
+            if (isset($listarr[$value])) {
+                $uv["data"][$key] = 0;
+                $originalList["data"][$key] = $listarr[$value]['sum'];
+                $validOriginalList["data"][$key] = $listarr[$value]['order_sum'];
+            } else {
+                $uv["data"][$key] = "0";
+                $originalList["data"][$key] = "0";
+                $validOriginalList["data"][$key] = "0";
+            }
+        }
+        return [$uv,$originalList,$validOriginalList];
+    }
+
+    public static function getPiechart($result,$rule)
+    {
+        if ($rule == 1){
+            $piedata = self::setpiechartData($result);
+        } else {
+            $piedata['one'] = self::setpiechartData($result['one']);
+            $piedata['two'] = self::setpiechartData($result['two']);
+        }
+        return $piedata;
+    }
+
+    public static function setpiechartData($result)
+    {
+        $seat_rate = $sign_rate = $tel_rate = $other_rate = 0;
+        $total = ['seat_num'=>0,'sign_num'=>0,'tel_num'=>0,'other_num'=>0,];
+        $num = count($result);
+        foreach ($result as $key=>$value) {
+            $total['seat_num'] += $value['seat_num'];
+            $total['sign_num'] += $value['sign_num'];
+            $total['tel_num'] += $value['tel_num'];
+            $total['other_num'] += $value['other_num'];
+            $seat_rate += $value['seat_rate'];
+            $sign_rate += $value['sign_rate'];
+            $tel_rate += $value['tel_rate'];
+            $other_rate += $value['other_rate'];
+        }
+        $arr[0]['value'] = $total['seat_num'];
+        $seat_rate_num = $num==0?"0":round($seat_rate / $num,4);
+        $sign_rate_num = $num==0?0:round($sign_rate / $num,4);
+        $tel_rate_num = $num==0?0:round($tel_rate / $num,4);
+        $other_rate_num = $num==0?0:round($other_rate / $num,4);
+        $arr[0]['name'] = '订单-在线坐席: '.$total['seat_num']."(".$seat_rate_num."%)";
+        $arr[1]['value'] = $total['sign_num'];
+        $arr[1]['name'] = '订单-在线报名: '.$total['sign_num']."(".$sign_rate_num."%)";
+        $arr[2]['value'] = $total['tel_num'];
+        $arr[2]['name'] = '订单-400电话: '.$total['tel_num']."(".$tel_rate_num."%)";
+        $arr[3]['value'] = $total['other_num'];
+        $arr[3]['name'] = '订单-其他: '.$total['other_num']."(".$other_rate_num."%)";
+        return $arr;
+    }
+
+    public static function setListInfoarr($total,$rule = 1)
+    {
+        $data = [0=>["datetime"=>"总计"]];
+        if ($rule == 1) {
+            $data[0]["sum"] = $total[0]["number"];
+            $data[0]["order_sum"] = $total[1]["number"];
+            $data[0]["order_sum_alone"] = $total[2]["number"];
+            $data[0]["order_rate"] = $total[3]["number"];
+            $data[0]["seat_num"] = $total[4]["number"];
+            $data[0]["sign_num"] = $total[5]["number"];
+            $data[0]["tel_num"] = $total[6]["number"];
+            $data[0]["other_num"] = $total[7]["number"];
+        } else {
+            foreach ($total as $key=>$value) {
+                $data[0]["sum"][$key] = $value[0]["number"];
+                $data[0]["order_sum"][$key] = $value[1]["number"];
+                $data[0]["order_sum_alone"][$key] = $value[2]["number"];
+                $data[0]["order_rate"][$key] = $value[3]["number"];
+                $data[0]["seat_num"][$key] = $value[4]["number"];
+                $data[0]["sign_num"][$key] = $value[5]["number"];
+                $data[0]["tel_num"][$key] = $value[6]["number"];
+                $data[0]["other_num"][$key] = $value[7]["number"];
+            }
+            foreach ($data[0] as $key=>$value) {
+                if (is_array($value)) {
+                    $data[0][$key] = self::setChangeData($value);
+                } else {
+                    $data[0][$key] = $value;
+                }
+            }
+        }
+        return $data;
+    }
+
+    public static function getTableData($result,$total,$rule)
+    {
+        $data = self::setListInfoarr($total,$rule);
+        if ($rule == 1) {
+            foreach ($result as $key => $value) {
+                $data[$key + 1]["datetime"] = date("Y-m-d",strtotime($value["create_time"]));
+                $data[$key + 1]['sum'] = $value['sum'];
+                $data[$key + 1]['order_sum'] = $value['order_sum'];
+                $data[$key + 1]['order_sum_alone'] = $value['order_sum_alone'];
+                $data[$key + 1]['order_rate'] = $value['order_rate'];
+                $data[$key + 1]['seat_num'] = $value['seat_num'];
+                $data[$key + 1]['sign_num'] = $value['sign_num'];
+                $data[$key + 1]['tel_num'] = $value['tel_num'];
+                $data[$key + 1]['other_num'] = $value['other_num'];
+            }
+        } else {
+            foreach ($result as $item=>$info){
+                foreach ($info as $key=>$value){
+                    $time_now = date("Y-m-d",strtotime($value["create_time"]));
+                    $listarr[$item][$time_now] = $value;
+                }
+            }
+            $one_info = !empty($listarr['one'])?array_values($listarr['one']):[];
+            $two_info = !empty($listarr['two'])?array_values($listarr['two']):[];
+            $one_count = count($one_info);
+            $two_count = count($two_info);
+            $one_count >= $two_count?$new_count = $one_count:$new_count = $two_count;
+            for ($i=0;$i<$new_count;$i++) {
+                if (empty($one_info[$i])) {
+                    $one_info[$i] = ["create_time"=>"-","sum"=>"0","order_sum"=>"0","order_sum_alone"=>"0","order_rate"=>"0%","seat_num"=>"0(0%)","sign_num"=>"0(0%)","tel_num"=>"0(0%)","other_num"=>"0(0%)"];
+                }
+                if (empty($two_info[$i])) {
+                    $two_info[$i] = ["create_time"=>"-","sum"=>"0","order_sum"=>"0","order_sum_alone"=>"0","order_rate"=>"0%","seat_num"=>"0(0%)","sign_num"=>"0(0%)","tel_num"=>"0(0%)","other_num"=>"0(0%)"];
+                }
+                if($one_info[$i]['create_time'] != "-") {
+                    $one_info[$i]['create_time'] = date("Y-m-d",strtotime($one_info[$i]['create_time']));
+                }
+                if($two_info[$i]['create_time'] != "-") {
+                    $two_info[$i]['create_time'] = date("Y-m-d",strtotime($two_info[$i]['create_time']));
+                }
+                foreach ($one_info[$i] as $key=>$value) {
+                    $data[$i+1]["datetime"] = $one_info[$i]['create_time'].' VS '. $two_info[$i]['create_time'];
+                    if ($key != "create_time") {
+                        $data[$i+1][$key]['one'] = $one_info[$i][$key];
+                        $data[$i+1][$key]['two'] = $two_info[$i][$key];
+                    }
+                }
+                foreach ($data[$i+1] as $key=>$value) {
+                    if (is_array($value)) {
+                        $data[$i+1][$key] = self::setChangeData($value);
+                    } else {
+                        $data[$i+1][$key] = $value;
+                    }
+                }
+            }
+        }
+        return $data;
+    }
+
+    public static function setChangeData($data)
+    {
+        $data_new = $data;
+        if (stristr($data['one'],"(",TRUE)) {
+            $data_new['one'] = strstr($data['one'], "(", TRUE);
+            $data_new['two'] = strstr($data['two'], "(", TRUE);
+        } else {
+            $data_new['one'] = $data['one'];
+            $data_new['two'] = $data['two'];
+        }
+        $dom = $data_new['one'] - $data_new['two'];
+        $data_new['type'] = $dom >= 0?$dom>0?"up":"equality":"down";
+        $newdom = $dom>0?'+'.$dom:$dom;
+        $data_new["change"] = $data_new['two'] == 0 ?$data_new['one']."(100%)":$newdom."(".(round($newdom/$data_new['two'],4)*100)."%)";
+        $data_new['one'] = $data['one'];
+        $data_new['two'] = $data['two'];
+        return $data_new;
+    }
+
+    public static function getStrByStr($val)
+    {
+        $str["one"] = strstr($val, "(", TRUE);
+        $str["two"] = str_replace(")","",str_replace("(","",strstr($val, "(", FALSE)));
+        return $str;
+    }
+}

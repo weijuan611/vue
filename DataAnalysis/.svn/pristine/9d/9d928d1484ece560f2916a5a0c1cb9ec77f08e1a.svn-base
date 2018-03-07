@@ -1,0 +1,34 @@
+.pageWrap {
+  padding-bottom: 10px;
+}
+.searchWrap .el-checkbox {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.rect ul.flowDataDetail {
+  width: 100%;
+  min-width: 900px;
+}
+.rect ul.flowDataDetail li {
+  width: 10%;
+  height: 58px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 28px;
+}
+.rect ul.flowDataDetail li p:last-child {
+  font-size: 15px;
+  font-weight: bold;
+  color: #b81717;
+}
+
+.line-chart {
+  width: 98%;
+  margin: 0 auto;
+}
+.line-chart #lineChart {
+  width: 90%;
+  height: 300px;
+  margin: 0 auto;
+}

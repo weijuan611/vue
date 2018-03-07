@@ -1,0 +1,34 @@
+.login-wrap {
+  width:100%;
+  height:100%;
+  background: #324157;
+}
+.title {
+  padding-top: 150px;
+  padding-bottom: 50px;
+  width:100%;
+  text-align: center;
+  font-size:30px;
+  color: #fff;
+}
+.box {
+  box-sizing: content-box;
+  width:300px;
+  height:160px;
+  padding:40px;
+  border-radius: 5px;
+  background: #fff;
+  margin: 0 auto;
+}
+.submit {
+  text-align: center;
+}
+.submit button{
+  width:100%;
+  height:36px;
+}
+.tip {
+  font-size:12px;
+  line-height:30px;
+  color:#999;
+}

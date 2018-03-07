@@ -1,0 +1,58 @@
+var webPage = require('webpage');
+var page = webPage.create();
+var fs = require('fs');
+var system = require('system');
+
+var cookie = 'BDUSS=DNMd3E5a0stME14ZHh1ZTJMWVBMWEZ5NHFCUGw5NGRZLUlnT0h5NmNYRERuSTVhQVFBQUFBJCQAAAAAAAAAAAEAAACy7IQO0KHg1jMyMwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMMPZ1rDD2daO; BAIDUID=9899091E7E5A12EFC3E2BFF5E977230B:FG=1; HOSUPPORT=1; UBI=fi_PncwhpxZ; PASSID=ngCkAP; HISTORY=ab2f1c6b4150a80e83b04e994ebb16a0574e8b081d0ddc75; PTOKEN=deleted; SAVEUSERID=20f85986f2c2625ba6b1ac9d14773a28bc5301cd; USERNAMETYPE=2; STOKEN=deleted; PHPSESSID=jn94527jh04f1krrmvo0hcgpf1; access_log=c69f24caf9e94d5e3a183b15412eb81e; SID=937_918_903_931_935_953_955_957_959_961_963_964; channel=zhifang_other; TIEBA_USERTYPE=a043d10adca6e873671a829c; AB_EXPERIMENT=; __bsi=13848955249642352838_00_24_N_N_54_0303_c02f_Y; CHKFORREG=8c895f70ea6a275e2d31feab73bde765';
+var keyword = '2016';
+var dir ='';
+
+console.log(cookie);
+
+if(system.args.length >1){
+    cookie = system.args[1];
+}
+
+if(system.args.length >2){
+    dir = system.args[2];
+}
+
+// keyword = encodeURI(keyword);
+page.customHeaders = {
+    'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Cache-Control':'max-age=0',
+    'Connection':'keep-alive',
+    'Cookie':cookie,
+    'Host':'index.baidu.com',
+    'Referer':'http://index.baidu.com/?tpl=trend&word='+keyword,
+    'Upgrade-Insecure-Requests':1,
+    'User-Agent':'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
+};
+
+page.onResourceRequested = function (req) {
+    console.log('requested: ' + JSON.stringify(req.url, undefined, 4));
+};
+
+page.onResourceReceived = function (res) {
+    // console.log('received: ' + JSON.stringify(res.url, undefined, 4));
+};
+
+// page.includeJs('http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js');
+
+page.viewportSize = { width: 1920, height: 1080 };
+page.XSSAuditingEnabled = true ;//监控跨域
+page.open('http://index.baidu.com/?tpl=trend&word='+keyword, function(status) {
+    console.log("Status: " + status);
+    var cookies = page.cookies;
+    console.log('Listing cookies:');
+    for(var i in cookies) {
+        console.log(cookies[i].name + '=' + cookies[i].value);
+    }
+});
+
+page.onLoadFinished=function (status) {
+    setInterval(function () {
+        page.render(dir+'.png');
+        phantom.exit();
+    },1000)
+};

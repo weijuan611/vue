@@ -1,0 +1,303 @@
+<template>
+    <page-wrap>
+
+        <!-- 标题栏 -->
+        <page-title title="流量分析-来路域名" :date="searchData.dateTime" />
+
+        <!-- 搜索栏 -->
+        <search-wrap>
+            <el-form ref="form" :model="searchData" size="mini">
+                <el-form-item>
+                    <el-row :gutter="20">
+
+                        <el-col :sm="14" :lg="12">
+                            <div class="bg">
+                                <el-radio-group v-model="dayMark" @change="changeDayMark">
+                                    <el-radio-button label="昨天"></el-radio-button>
+                                    <el-radio-button label="最近7天"></el-radio-button>
+                                    <el-radio-button label="最近30天"></el-radio-button>
+                                </el-radio-group>
+                                <el-date-picker
+                                        v-model="searchData.dateTime"
+                                        type="daterange"
+                                        value-format="yyyy-MM-dd"
+                                        @change="changeDate"
+                                        range-separator="至"
+                                        start-placeholder="开始日期"
+                                        end-placeholder="结束日期">
+                                </el-date-picker>
+                            </div>
+                        </el-col>
+
+                        <el-col :sm="4" :lg="4">
+                            <div class="bg">
+                                <el-input v-model="searchData.urldetail" placeholder="请输入URL" style="width:100%;"></el-input>
+                            </div>
+                        </el-col>
+
+                        <el-col :sm="6" :lg="8">
+                            <el-button type="primary" @click="onSubmit">查询</el-button>
+                            <el-button type="danger" @click="onClear">清空</el-button>
+                            <el-button type="warning" @click="onExportAll" style="display: none;"
+                            :disabled=!buttonControl.originanalysisexport>导出全部</el-button>
+                        </el-col>
+                    </el-row>
+                </el-form-item>
+            </el-form>
+        </search-wrap>
+
+
+        <!-- 其它的都放在这儿 -->
+        <other-wrap>
+          <rectangle :data="originDataDetail" cols="4" />
+        </other-wrap>
+
+
+        <!-- 表格 -->
+        <table-wrap>
+            <el-table
+                ref="table"
+                :data="tableData"
+                @sort-change="tableSortChange"
+                size="mini"
+                :height="tabTableHeight">
+                <el-table-column prop="d_name" label="来路域名">
+                    <template slot-scope="scope">
+                        <a :href="'http://'+scope.row.d_name" target="_blank" :title="scope.row.d_name">{{scope.row.d_name}}</a>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="d_num" label="访问次数" sortable="custom">
+                  <template slot-scope="scope">
+                      <a @click="clickDomain(scope.row)" :title="scope.row.d_num">{{scope.row.d_num}}</a>
+                  </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+
+
+        <!-- 分页 -->
+        <pagination-wrap>
+            <new-pagination
+                :total="paginationData.total"
+                :propCurrentPage="paginationData.currentPage"
+                @initPaginationData="showPaginationData"
+                @handleSizeChange="showSizeChange"
+                @handleCurrentChange="showCurrentChange"
+            />
+        </pagination-wrap>
+
+    </page-wrap>
+</template>
+
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import OtherWrap from './../../components/pageStructure/OtherWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import paginationWrap from './../../components/pageStructure/paginationWrap.vue'
+    import NewPagination from './../../components/base/NewPagination.vue'
+
+    import PageTitle from './../../components/pageStructure/PageTitle.vue'
+    import Rectangle from './../../components/pageStructure/Rectangle.vue'
+
+    import { getDates }  from './../../assets/js/baseFunc/baseSelfFunc'
+    import { mapState, mapMutations } from 'vuex'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, OtherWrap, TableWrap, paginationWrap, NewPagination, PageTitle, Rectangle
+        },
+        data () {
+            return {
+                searchData: {
+                    dateTime: '',
+                    urldetail: ''
+                },
+                originDataDetail: [
+                    {
+                        title: '访问次数',
+                        number: 0
+                    },
+                    {
+                        title: '直接输入网址或书签',
+                        number: 0
+                    },
+                    {
+                        title: '搜索引擎',
+                        number: 0
+                    },
+                    {
+                        title: '其他外部链接',
+                        number: 0
+                    }
+                ],
+                tableData: [],
+                buttonControl:[],
+                paginationData: {
+                    total: 0,
+                    prop:"d_num",
+                    order:"descending"
+                },
+                dayMark: '昨天',
+                loading: false
+            }
+        },
+        mounted () {
+            this.init()
+        },
+        computed: {
+            ...mapState('navTabs',[
+                'tabTableHeight'
+            ])
+        },
+        methods: {
+            createLineChart () {
+                let searchEngine_LineChart_Option = {
+                    tooltip: {
+                        trigger: 'axis'
+                    },
+                    legend: {
+                        data:this.searchEngine_LineChart_Data.title
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '8%',
+                        bottom: '3%',
+                        containLabel: true
+                    },
+                    toolbox: {
+                        feature: {
+                            saveAsImage: {}
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: this.searchEngine_LineChart_Data.time
+                    },
+                    yAxis: {
+                        type: 'value'
+                    },
+                    series: this.searchEngine_LineChart_Data.source
+                }
+                this.$echarts.init(document.getElementById('searchEngine_LineChart')).setOption(searchEngine_LineChart_Option)
+            },
+            initSearchData () {
+                this.dayMark = '昨天'
+                this.searchData.dateTime = [getDates('yesterday'), getDates('yesterday')]
+                this.searchData.urldetail = ''
+            },
+            init () {
+                this.initSearchData()
+                this.onSubmit()
+            },
+            tableSortChange (val) {
+                this.paginationData.prop = val.prop
+                this.paginationData.order = val.order
+                this.onSubmit('changeSort')
+            },
+            onSubmit (action) {
+                let that = this
+                if (action !== 'changeCurrentPage') {
+                  that.paginationData.currentPage = 1
+                }
+                if (action !== 'changeSort' && action !== 'changeCurrentPage') {
+                  that.$refs.table.clearSort()
+                  this.paginationData.prop = 'd_num'
+                  this.paginationData.order = 'descending'
+                }
+                that.loading = true
+                that.$ajax.post('/originanalysis/index', {searchData:that.searchData,paginate:that.paginationData})
+                    .then(function (res) {
+                        if (res.data) {
+                            that.tableData = res.data.tableData
+                            that.originDataDetail = res.data.originDataDetail
+                            that.paginationData.total = res.data.total
+                            that.buttonControl = res.data.buttonControl
+                        }
+                        that.loading = false
+                    })
+                    .catch(function(err) {
+                    })
+            },
+            onClear () {
+                this.initSearchData()
+                this.onSubmit()
+            },
+            onExportAll () {
+                let that = this
+                that.loading = true
+                that.$ajax.post('/keyword/export', {"type":"1"})
+                    .then(function (res) {
+                        if (res.data) {
+                            window.location = 'index.php/originanalysis/export?urldetail=' + that.searchData.urldetail + '&start_time=' + that.searchData.dateTime[0] + '&end_time=' + that.searchData.dateTime[1] + '&prop=' + that.paginationData.prop + '&order=' + that.paginationData.order;
+                        }
+                    })
+                    .catch(function(err) {
+                    })
+            },
+            changeDayMark (val) {
+                switch (val) {
+                    case '昨天':
+                        this.searchData.dateTime = [getDates('yesterday'), getDates('yesterday')]
+                        break
+                    case '最近7天':
+                        this.searchData.dateTime = [getDates('sevenDay'), getDates('yesterday')]
+                        break
+                    case '最近30天':
+                        this.searchData.dateTime = [getDates('thirtyDay'), getDates('yesterday')]
+                        break
+                }
+                this.onSubmit()
+            },
+            changeDate (val) {
+              if (val !== null) {
+                if (val[0] === getDates('yesterday') && val[1] === getDates('yesterday')) {
+                    this.dayMark = '昨天'
+                } else if (val[0] === getDates('sevenDay') && val[1] === getDates('yesterday')) {
+                    this.dayMark = '最近7天'
+                } else if (val[0] === getDates('thirtyDay') && val[1] === getDates('yesterday')) {
+                    this.dayMark = '最近30天'
+                } else {
+                    this.dayMark = ''
+                }
+              } else {
+                this.dayMark = ''
+              }
+                this.onSubmit()
+            },
+            showPaginationData (data) {
+                this.paginationData.pageSizes = data.pageSizes
+                this.paginationData.pageSize = data.pageSize
+                this.paginationData.currentPage = data.currentPage
+                this.paginationData.total = data.total
+            },
+            showSizeChange (val) {
+                this.paginationData.pageSize = val
+                this.onSubmit()
+            },
+            showCurrentChange (val) {
+                this.paginationData.currentPage = val
+                this.onSubmit('changeCurrentPage')
+            },
+            ...mapMutations('navTabs', ['addTab', 'func_domain_to_visitDetail']),
+            clickDomain (val) {
+              let obj = {
+                date: this.searchData.dateTime,
+                number: val.d_num,
+                url: {
+                  way: 'from-zdy',
+                  value: val.d_name
+                }
+              }
+              this.addTab({name: 'flowAnalysis/VisitDetail', title: '访问明细'})
+              this.func_domain_to_visitDetail(obj)
+            }
+        }
+    }
+</script>
+
+<style scoped>
+    @import "./../../assets/css/page/OriginAnalysis.css";
+</style>

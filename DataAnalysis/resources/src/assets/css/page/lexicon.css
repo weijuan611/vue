@@ -1,0 +1,167 @@
+.el-dialog .el-checkbox {
+  margin-left: 10px;
+  margin-right: 20px;
+  width: 135px;
+}
+.tags-wrap {
+  width: 180px;
+  height: 28px;
+  border: 1px solid #000;
+}
+.index-form-style .el-checkbox {
+  height: 40px;
+}
+.index-form-style .el-checkbox .el-checkbox__label > span {
+  display: inline-block;
+  width: 80px;
+}
+.index-form-style .el-checkbox .el-select {
+  margin-right: 10px;
+}
+
+/* 选择分类 */
+.class-list {
+
+}
+.class-list > ul {
+  display: inline-block;
+  font-size: 13px;
+  float: left;
+}
+.class-list > ul.one {
+  width: 52px;
+  color: #fff;
+  background-color: #647b8b;
+}
+.class-list > ul.one li {
+  border-bottom: 1px solid #fff;
+  text-align: center;
+}
+.class-list > ul.one li:last-child {
+  border-bottom: 0;
+}
+.class-list > ul.one > li.all {
+  height: 30px;
+  line-height: 30px;
+  background-color: #596168;
+}
+.class-list > ul.one > li.a {
+  height: 90px;
+  padding: 20px 3px;
+}
+.class-list > ul.one > li.b {
+  height: 120px;
+  padding: 40px 3px;
+}
+.class-list > ul.one > li.c {
+  height: 90px;
+  padding: 20px 3px;
+}
+.class-list > ul.two {
+  background-color: #eee;
+  width: 100px;
+}
+.class-list > ul.two > li {
+  cursor: pointer;
+  height: 30px;
+  line-height: 30px;
+  text-align: center;
+  border-bottom: 1px solid #ddd;
+}
+.class-list > ul.two > li.all {
+  background-color: #98a1a8;
+  color: #fff;
+}
+.class-list > ul.three {
+  position: relative;
+  background-color: #fff;
+  width: 650px;
+  height: 330px;
+  overflow-y: auto;
+}
+.class-list > ul.three > li.all {
+  position: sticky;
+  top: 0;
+  height: 30px;
+  line-height: 30px;
+  text-align: left;
+  text-indent: 20px;
+  background-color: #d7dee4;
+  border-bottom: 1px solid #ddd;
+  font-weight: bold;
+}
+.class-list > ul.three > li {
+  border-bottom: 1px dashed #e4e5e6;
+}
+.class-list > ul.three > li > span.left {
+  display: inline-block;
+  cursor: pointer;
+  width: 17%;
+  height: 100%;
+  text-align: center;
+  margin-left: 1%;
+  vertical-align: middle;
+  color: #2796b1;
+  border: 1px solid #fff;
+  padding: 0 5px;
+  border-radius: 3px;
+}
+.class-list > ul.three > li > ul.right {
+  display: inline-block;
+  width: 80%;
+  vertical-align: middle;
+}
+
+.class-list > ul.three > li > ul.right > li {
+  display: inline-block;
+  cursor: pointer;
+  width: 100px;
+  text-align: center;
+  margin: 4px 6px;
+  height: 25px;
+  line-height: 25px;
+  border: 1px solid #d7dee4;
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectClassTypeTrue {
+  background-color: rgb(138, 174, 183);
+  color: #fff;
+}
+.selectClassTypeFalse {
+  background-color: #eee;
+  color: #606266;
+}
+.selectClassOneTrue {
+  border: 1px solid #2796b1!important;
+  background-color: #eee;
+}
+.selectClassOneFalse {
+  border: 1px solid #eee;
+  background-color: #fff;
+  color: #2796b1;
+}
+.selectClassTwoTrue {
+  border: 1px solid #eee;
+  background-color: #6f8ba2;
+  color: #fff;
+}
+.selectClassTwoFalse {
+  border: 1px solid #eee;
+  background-color: #fff;
+  color: #606266;
+}
+
+.triggle {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  background: url(./../../assets/img/triggle.png) no-repeat center center;
+  background-size: 100%;
+  position: relative;
+  left: 24px;
+  z-index: 2;
+}

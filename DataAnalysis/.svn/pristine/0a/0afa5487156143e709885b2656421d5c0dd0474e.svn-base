@@ -1,0 +1,125 @@
+<?php
+/**
+ * 处理原始单数据
+ */
+
+namespace app\script\command;
+
+use app\common\Constant;
+use app\common\Utility;
+use think\Db;
+use think\db\Query;
+use think\Log;
+use think\console\Command;
+use think\console\Input;
+use think\console\Output;
+use think\console\input\Argument;
+use think\Exception;
+
+class OrderHandle extends Command
+{
+    protected $time;
+
+    /**
+     * 面板
+     */
+    protected function configure()
+    {
+        $this->setName('orderHandle')->setDescription('create data for source_order_count,...');
+        $this->addOption('time', 't', Argument::OPTIONAL, 'download date', date('Y-m-d', strtotime('-1day')));
+    }
+
+    /**
+     * 入口
+     * @param Input $input
+     * @param Output $output
+     */
+    protected function execute(Input $input, Output $output)
+    {
+        ini_set('memory_limit', '2048M');
+        $this->time = strtotime($input->getOption('time'));
+        $this->output->writeln("input time :" . $input->getOption('time'));
+        $this->output->writeln("Task start!");
+        Log::log('OrderHandle start!');
+        $this->source_order_count();
+        $this->order_count();
+        $this->output->writeln("Task end!");
+        Log::log('OrderHandle end!');
+    }
+
+    /**
+     * 填充source_order_count表
+     */
+    protected function source_order_count()
+    {
+        $insert_data = ['create_time' => date('Y-m-d 00:00:00', $this->time)];
+        $start_time = strtotime(date('Y-m-d 00:00:00', $this->time));
+        $end_time = strtotime(date('Y-m-d 23:59:59', $this->time));
+        $insert_data['sum'] = Db::table('source_order')->where('ordertime', 'between', [$start_time, $end_time])->count();
+        list($insert_data['order_sum'], $insert_data['order_sum_alone']) = array_values(Db::table('order')->where('order_time', 'between', [$start_time, $end_time])
+            ->field('COUNT(*)num,COUNT(DISTINCT link_phone)raw')->find());
+        $insert_data['order_rate'] = $insert_data['sum'] > 0 ? round($insert_data['order_sum_alone'] / $insert_data['sum'], 4) * 100 : 0.00;
+        $insert_data['uv'] = Db::table('url_count_pc')->where('create_time', '=', date('Y-m-d 00:00:00', $this->time))
+            ->value('uv', 0);
+        $insert_data['uv'] += Db::table('url_count_m')->where('create_time', '=', date('Y-m-d 00:00:00', $this->time))
+            ->value('uv', 0);
+        $insert_data['valid_num'] = Db::table('source_order')->where('ordertime', 'between', [$start_time, $end_time])
+            ->where('status', '<>', 3)->where('unvalidnum', '<', 1)->count();
+        $insert_data['valid_rate'] = $insert_data['sum'] > 0 ? round($insert_data['valid_num'] / $insert_data['sum'], 4) * 100 : 0.00;
+        $insert_data['invalid_num'] = Db::table('source_order')->where('ordertime', 'between', [$start_time, $end_time])
+            ->where(function ($query) {
+                $query->where('status', '=', 3)->whereor('unvalidnum', '>', 0);
+            })->count();
+        $insert_data['invalid_rate'] = $insert_data['sum'] > 0 ? round($insert_data['invalid_num'] / $insert_data['sum'], 4) * 100 : 0.00;
+        $insert_data['auto_invalid_num'] = Db::table('source_order')->where('ordertime', 'between', [$start_time, $end_time])
+            ->where('status', '=', 3)->count();
+        $insert_data['auto_invalid_rate'] = $insert_data['sum'] > 0 ? round($insert_data['auto_invalid_num'] / $insert_data['sum'], 4) * 100 : 0.00;
+        $insert_data['hand_invalid_num'] = Db::table('source_order')->where('ordertime', 'between', [$start_time, $end_time])
+            ->where('unvalidnum', '>', 0)->count();
+        $insert_data['hand_invalid_rate'] = $insert_data['sum'] > 0 ? round($insert_data['hand_invalid_num'] / $insert_data['sum'], 4) * 100 : 0.00;
+        try {
+            Db::table('source_order_count')->insert($insert_data);
+            Log::log('orderHandle:source_order_count successful');
+        } catch (Exception $e) {
+            Log::error($e->getMessage() . "[" . $e->getCode() . "]\n" . $e->getTraceAsString());
+        }
+    }
+
+    /**
+     * 填充order_count表
+     */
+    protected function order_count()
+    {
+        // seat_num在线坐席（去重）,seat_rate在线坐席（去重)比例,
+        // sign_num在线报名（去重）,sign_rate在线报名（去重）%,
+        // tel_num400电话（去重）,tel_rate400电话（去重）%,
+        // other_num其他（去重）,other_rate其他（去重）%
+        $insert_data = ['create_time' => date('Y-m-d 00:00:00', $this->time)];
+        $start_time = strtotime(date('Y-m-d 00:00:00', $this->time));
+        $end_time = strtotime(date('Y-m-d 23:59:59', $this->time));
+        $order_sum = Db::table('order')->where('order_time', 'between', [$start_time, $end_time])->count();
+
+        $insert_data['seat_num'] = Db::table('order')->where('order_time', 'between', [$start_time, $end_time])
+            ->where('order_origin', 'EXP', 'IN( ' . implode(',', [10, 11, 12, 13, 14, 15, 20, 21]) . ' )')->count();
+        $insert_data['seat_rate'] = $order_sum > 0 ? round($insert_data['seat_num'] / $order_sum, 4) * 100 : 0.00;
+        $insert_data['sign_num'] = Db::table('order')->where('order_time', 'between', [$start_time, $end_time])
+            ->where('order_origin', 'EXP', 'IN( ' . implode(',', [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41]) . ' )')->count();
+        $insert_data['sign_rate'] = $order_sum > 0 ? round($insert_data['sign_num'] / $order_sum, 4) * 100 : 0.00;
+        $insert_data['tel_num'] = Db::table('order')->where('order_time', 'between', [$start_time, $end_time])
+            ->where('order_origin', 'EXP', 'IN( ' . implode(',', [1, 2, 3, 4]) . ' )')->count();
+        $insert_data['tel_rate'] = $order_sum > 0 ? round($insert_data['tel_num'] / $order_sum, 4) * 100 : 0.00;
+        $insert_data['other_num'] = Db::table('order')->where('order_time', 'between', [$start_time, $end_time])
+            ->where('order_origin', 'EXP', 'IN( ' . implode(',', [16, 17, 18, 28, 50, 51, 52]) . ' )')->count();
+        $insert_data['other_rate'] = $order_sum > 0 ? round($insert_data['other_num'] / $order_sum, 4) * 100 : 0.00;
+        try {
+//            Db::table('order_count')->insert($insert_data);
+            $sql = 'insert ignore into order_count values(0,\'' . implode('\',\'', $insert_data) . '\')';
+            Db::execute($sql);
+            Log::log('orderHandle:order_count successful');
+        } catch (Exception $e) {
+            Log::error($e->getMessage() . "[" . $e->getCode() . "]\n" . $e->getTraceAsString());
+        }
+    }
+
+
+}

@@ -1,0 +1,13 @@
+.spider-pc-pieChart, .spider-m-pieChart {
+  width: 48%;
+}
+.spider-barChart, .spider-barChart {
+  width: 100%;
+}
+#spider_pc_pieChart, #spider_m_pieChart, #spider_barChart {
+  width: 100%;
+  height: 250px;
+}
+#spider_m_barChart > div, #spider_m_barChart > div canvus {
+  width: 100%;
+}

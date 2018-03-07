@@ -1,0 +1,548 @@
+<template>
+  <page-wrap>
+
+  	<page-title title="原始单与订单-原始单概况" :date="searchData.dateTime" :date2="searchData.compare ? searchData.dateTime2 : null" />
+
+    <search-wrap>
+      <el-form ref="form" :model="searchData" size="mini">
+        <el-form-item>
+          <el-radio-group v-model="dayMark" @change="changeDayMark">
+            <el-radio-button label="昨天"></el-radio-button>
+            <el-radio-button label="前天"></el-radio-button>
+            <el-radio-button label="最近7天"></el-radio-button>
+          </el-radio-group>
+          <el-date-picker
+                  v-model="searchData.dateTime"
+                  type="daterange"
+                  value-format="yyyy-MM-dd"
+                  @change="changeDate"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期">
+          </el-date-picker>
+          <el-checkbox v-model="searchData.compare" @change="changeCompare">对比</el-checkbox>
+          <el-date-picker
+                  v-model="searchData.dateTime2"
+                  v-show="showCompareDate"
+                  type="daterange"
+                  value-format="yyyy-MM-dd"
+                  @change="changeDate2"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期">
+          </el-date-picker>
+        </el-form-item>
+      </el-form>
+    </search-wrap>
+
+    <other-wrap>
+      <rectangle :show="!searchData.compare" :data="originalOrder1" cols="8" />
+
+      <rectangle :show="searchData.compare" :data="originalOrder1" cols="8" words="时段一" iconType="colorBall2" iconBg="#42d4be" iconWidth="50px" />
+      <rectangle :show="searchData.compare" :data="originalOrder2" cols="8" words="时段二" iconType="colorBall2" iconBg="#42d4be" iconWidth="50px" />
+
+      <el-card class="line-chart" v-show="showEcharts">
+        <div class="box-card-content">
+          <div id="originalOrder_lineChart"></div>
+        </div>
+      </el-card>
+    </other-wrap>
+
+    <!-- 表格 -->
+    <table-wrap>
+      <el-table
+        v-loading="loading"
+        v-show="!searchData.compare"
+        :data="tableData.simple"
+        border
+        :row-class-name="tableRowClassName"
+        size="mini">
+        <el-table-column label="日期" width="100px" prop="datetime"></el-table-column>
+        <el-table-column label="原始单总量" width="90px" prop="sum"></el-table-column>
+        <el-table-column label="订单总量（去重）" width="120px" prop="order_sum"></el-table-column>
+        <el-table-column label="原始单-订单转化率" width="130px" prop="order_rate"></el-table-column>
+        <el-table-column label="UV总量" prop="uv"></el-table-column>
+        <el-table-column label="有效原始单" width="100px" prop="valid_num"></el-table-column>
+        <el-table-column label="无效原始单" width="100px" prop="invalid_num"></el-table-column>
+        <el-table-column label="自动无效单" width="100px" prop="auto_invalid_num"></el-table-column>
+        <el-table-column label="手动无效单" width="100px" prop="hand_invalid_num"></el-table-column>
+        <el-table-column label="操作" width="300px" fixed="right">
+          <template slot-scope="scope">
+            <el-button type="text" plain size="mini" icon="el-icon-location-outline" disabled>来源分布</el-button>
+            <el-button type="text" plain size="mini" icon="el-icon-location-outline" disabled>城市分布</el-button>
+            <el-button type="text" plain size="mini" icon="el-icon-location-outline" disabled>页面分布</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-table
+        v-show="searchData.compare"
+        v-loading="loading"
+        :data="tableData.complex"
+        border
+        :cell-style="setCellStyle"
+        :row-class-name="tableRowClassName"
+        max-height="550"
+        size="mini">
+        <el-table-column label="时段" width="200px" prop="datetime"></el-table-column>
+        <el-table-column label="原始单总量">
+          <el-table-column label="时段一" prop="sum.one"></el-table-column>
+          <el-table-column label="时段二" prop="sum.two"></el-table-column>
+          <el-table-column label="变化情况" prop="sum.change" width="120px"></el-table-column>
+        </el-table-column>
+        <el-table-column label="订单总量（去重）">
+          <el-table-column label="时段一" prop="order_sum.one"></el-table-column>
+          <el-table-column label="时段二" prop="order_sum.two"></el-table-column>
+          <el-table-column label="变化情况" prop="order_sum.change" width="120px"></el-table-column>
+        </el-table-column>
+        <el-table-column label="原始单-订单转化率">
+          <el-table-column label="时段一" prop="order_rate.one"></el-table-column>
+          <el-table-column label="时段二" prop="order_rate.two"></el-table-column>
+          <el-table-column label="变化情况" prop="order_rate.change" width="120px"></el-table-column>
+        </el-table-column>
+        <el-table-column label="UV总量">
+          <el-table-column label="时段一" prop="uv.one"></el-table-column>
+          <el-table-column label="时段二" prop="uv.two"></el-table-column>
+          <el-table-column label="变化情况" prop="uv.change" width="120px"></el-table-column>
+        </el-table-column>
+        <el-table-column label="有效原始单">
+          <el-table-column label="时段一" prop="valid_num.one"></el-table-column>
+          <el-table-column label="时段二" prop="valid_num.two"></el-table-column>
+          <el-table-column label="变化情况" prop="valid_num.change" width="120px"></el-table-column>
+        </el-table-column>
+        <el-table-column label="无效原始单">
+          <el-table-column label="时段一" prop="invalid_num.one"></el-table-column>
+          <el-table-column label="时段二" prop="invalid_num.two"></el-table-column>
+          <el-table-column label="变化情况" prop="invalid_num.change" width="120px"></el-table-column>
+        </el-table-column>
+        <el-table-column label="自动无效单">
+          <el-table-column label="时段一" prop="auto_invalid_num.one"></el-table-column>
+          <el-table-column label="时段二" prop="auto_invalid_num.two"></el-table-column>
+          <el-table-column label="变化情况" prop="auto_invalid_num.change" width="120px"></el-table-column>
+        </el-table-column>
+        <el-table-column label="手动无效单">
+          <el-table-column label="时段一" prop="hand_invalid_num.one"></el-table-column>
+          <el-table-column label="时段二" prop="hand_invalid_num.two"></el-table-column>
+          <el-table-column label="变化情况" prop="hand_invalid_num.change" width="120px"></el-table-column>
+        </el-table-column>
+      </el-table>
+    </table-wrap>
+
+  </page-wrap>
+</template>
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import OtherWrap from './../../components/pageStructure/OtherWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+
+    import PageTitle from './../../components/pageStructure/PageTitle.vue'
+    import Rectangle from './../../components/pageStructure/Rectangle.vue'
+
+    import { getDates }  from './../../assets/js/baseFunc/baseSelfFunc'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, OtherWrap, TableWrap, PageTitle, Rectangle
+        },
+        data () {
+            return {
+                searchData: {
+                    dateTime: [getDates('sevenDay'), getDates('yesterday')],
+                    dateTime2: [getDates('fourteenDay'), getDates('eightDay')],
+                    compare: false
+                },
+                originalOrder1: [
+                  {
+                  	title: '原始单总量',
+                  	number: 0
+                  },
+                  {
+                  	title: '订单总量（去重）',
+                  	number: 0
+                  },
+                  {
+                  	title: '原始单-订单转化率',
+                  	number: '0%'
+                  },
+                  {
+                    title: 'UV总量',
+                    number: 0
+                  },
+                  {
+                    title: '有效原始单',
+                    number: 0
+                  },
+                  {
+                    title: '无效原始单',
+                    number: 0
+                  },
+                  {
+                    title: '自动无效单',
+                    number: 0
+                  },
+                  {
+                    title: '手动无效单',
+                    number: 0
+                  },
+                ],
+                originalOrder2: [
+                    {
+                      title: '原始单总量',
+                      number: 0
+                    },
+                    {
+                      title: '订单总量（去重）',
+                      number: 0
+                    },
+                    {
+                      title: '原始单-订单转化率',
+                      number: '0%'
+                    },
+                    {
+                      title: 'UV总量',
+                      number: 0
+                    },
+                    {
+                      title: '有效原始单',
+                      number: 0
+                    },
+                    {
+                      title: '无效原始单',
+                      number: 0
+                    },
+                    {
+                      title: '自动无效单',
+                      number: 0
+                    },
+                    {
+                      title: '手动无效单',
+                      number: 0
+                    },
+                ],
+                originalOrder_lineChartData: {
+                    left: {
+                        pv: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                        uv: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                        ip: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    },
+                    right: {
+                        pv: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                        uv: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                        ip: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    }
+                },
+                xData: [],
+                tableData: {
+                    simple: [],
+                    complex: []
+                },
+                loading: false,
+                dayMark: '最近7天',
+                showCompareDate: false,
+                showEcharts: true,
+                chartLegend: [],
+                chartSeries: []
+            }
+        },
+        mounted () {
+            this.createChart()
+            this.onSubmit()
+        },
+        methods: {
+            changeDayMark (val) {
+                switch (val) {
+                    case '前天':
+                        this.searchData.dateTime = [getDates('daybefore'), getDates('daybefore')]
+                        this.searchData.dateTime2 = [getDates('fourDay'), getDates('fourDay')]
+                        break
+                    case '昨天':
+                        this.searchData.dateTime = [getDates('yesterday'), getDates('yesterday')]
+                        this.searchData.dateTime2 = [getDates('daybefore'), getDates('daybefore')]
+                        break
+                    case '最近7天':
+                        this.searchData.dateTime = [getDates('sevenDay'), getDates('yesterday')]
+                        this.searchData.dateTime2 = [getDates('fourteenDay'), getDates('eightDay')]
+                        break
+                }
+                this.isshowEchart()
+                this.onSubmit()
+            },
+            changeDate (val) {
+                if (val[0] === getDates('daybefore') && val[1] === getDates('daybefore')) {
+                    this.dayMark = '前天'
+                    this.searchData.dateTime2 = [getDates('fourDay'), getDates('fourDay')]
+                } else if (val[0] === getDates('yesterday') && val[1] === getDates('yesterday')) {
+                    this.dayMark = '昨天'
+                    this.searchData.dateTime2 = [getDates('daybefore'), getDates('daybefore')]
+                } else if (val[0] === getDates('sevenday') && val[1] === getDates('yesterday')) {
+                    this.dayMark = '最近7天'
+                    this.searchData.dateTime2 = [getDates('fourteenDay'), getDates('eightDay')]
+                } else {
+                    this.dayMark = ''
+                }
+                this.isshowEchart()
+                this.onSubmit()
+            },
+            changeDate2 (val) {
+                this.isshowEchart()
+                this.onSubmit()
+            },
+            changeCompare (val) {
+                this.showCompareDate = val
+                this.isshowEchart()
+                this.createChart()
+                this.onSubmit()
+                this.originalOrder1 = [
+                    {
+                        title: '原始单总量',
+                        number: 0
+                    },
+                    {
+                        title: '订单总量（去重）',
+                        number: 0
+                    },
+                    {
+                        title: '原始单-订单转化率',
+                        number: '0%'
+                    },
+                    {
+                        title: 'UV总量',
+                        number: 0
+                    },
+                    {
+                        title: '有效原始单',
+                        number: 0
+                    },
+                    {
+                        title: '无效原始单',
+                        number: 0
+                    },
+                    {
+                        title: '自动无效单',
+                        number: 0
+                    },
+                    {
+                        title: '手动无效单',
+                        number: 0
+                    },
+                ]
+                this.originalOrder2 = [
+                    {
+                        title: '原始单总量',
+                        number: 0
+                    },
+                    {
+                        title: '订单总量（去重）',
+                        number: 0
+                    },
+                    {
+                        title: '原始单-订单转化率',
+                        number: '0%'
+                    },
+                    {
+                        title: 'UV总量',
+                        number: 0
+                    },
+                    {
+                        title: '有效原始单',
+                        number: 0
+                    },
+                    {
+                        title: '无效原始单',
+                        number: 0
+                    },
+                    {
+                        title: '自动无效单',
+                        number: 0
+                    },
+                    {
+                        title: '手动无效单',
+                        number: 0
+                    },
+                ]
+            },
+            tableRowClassName({row, rowIndex}) {
+                if (rowIndex === 0) {
+                    return 'sumClass'
+                }
+                return ''
+            },
+            onSubmit() {
+                let that = this
+                this.$ajax.post('/original/index', that.searchData)
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            if (that.searchData.compare === false) {
+                                if (that.searchData.dateTime[0] === that.searchData.dateTime[1] && that.searchData.dateTime2[0] === that.searchData.dateTime2[1]) {
+                                    that.tableData.simple = res.data.tableData
+                                    that.originalOrder1 = res.data.originalOrder1
+                                    that.originalOrder2 = res.data.originalOrder2
+                                    that.showEcharts = false
+                                } else {
+                                    that.xData = res.data.xdata
+                                    that.tableData.simple = res.data.tableData
+                                    that.originalOrder1 = res.data.originalOrder1
+                                    that.chartSeries = res.data.lineChartData
+                                    that.createChart()
+                                }
+                            } else {
+                                that.tableData.complex = res.data.tableData
+                                that.originalOrder1 = res.data.originalOrder1
+                                that.originalOrder2 = res.data.originalOrder2
+                                that.showEcharts = false
+                            }
+                        }
+                    })
+                    .catch(function(err) {
+
+                    })
+            },
+            setFontColor (val, cells) {
+              for (let i = 0; i < cells.length; i++) {
+                if (val.columnIndex === cells[i].index) {
+                  if (val.row[cells[i].name].type === 'up') {
+                    return { color : 'red', fontWeight: 'bold' }
+                  } else if (val.row[cells[i].name].type === 'down') {
+                    return { color : 'green', fontWeight: 'bold' }
+                  } else {
+                    return { color : '#777', fontWeight: 'bold' }
+                  }
+                }
+              }
+            },
+            setCellStyle (val) {
+                let cells = [
+                  {
+                    index: 3,
+                    name: 'sum'
+                  },
+                  {
+                    index: 6,
+                    name: 'order_sum'
+                  },
+                  {
+                    index: 9,
+                    name: 'order_rate'
+                  },
+                  {
+                    index: 12,
+                    name: 'uv'
+                  },
+                  {
+                    index: 15,
+                    name: 'valid_num'
+                  },
+                  {
+                    index: 18,
+                    name: 'invalid_num'
+                  },
+                  {
+                    index: 21,
+                    name: 'auto_invalid_num'
+                  },
+                  {
+                    index: 24,
+                    name: 'hand_invalid_num'
+                  },
+                ]
+                return this.setFontColor(val, cells)
+            },
+            createChart () {
+                this.chartLegend = !this.showCompareDate ? ['UV', '原始单', '有效原始单'] : ['时段一UV', '时段二UV', '时段一原始单', '时段二原始单', '时段一有效原始单', '时段二有效原始单']
+                let colors = ['#5793f3', '#d14a61', 'DarkTurquoise', 'OrangeRed', 'RoyalBlue', 'DeepPink']
+                let originalOrder_lineChart_option = {
+                   color: colors,
+                   tooltip: {
+                       trigger: 'axis',
+                       axisPointer: {
+                           type: 'cross'
+                       }
+                   },
+                   grid: {
+                       right: '20%'
+                   },
+                   legend: {
+                       data: this.chartLegend
+                   },
+                   xAxis: [
+                       {
+                           type: 'category',
+                           axisTick: {
+                               alignWithLabel: true
+                           },
+                           data: this.xData
+                       }
+                   ],
+                   yAxis: [
+                       {
+                           type: 'value',
+                           position: 'left',
+                           axisLine: {
+                               lineStyle: {
+                                   color: colors[0]
+                               }
+                           }
+                       },
+                       {
+                           type: 'value',
+                           position: 'right',
+                           offset: 10,
+                           axisLine: {
+                               lineStyle: {
+                                   color: colors[1]
+                               }
+                           }
+                       }
+                   ],
+                   series: this.chartSeries
+                }
+                let that = this
+                let originalOrder_lineChart = this.$echarts.init(document.getElementById('originalOrder_lineChart'))
+                originalOrder_lineChart.setOption(originalOrder_lineChart_option)
+                originalOrder_lineChart.on('legendselectchanged', function (params) {
+                    if (that.searchData.compare) {
+                        switch (params.name) {
+                            case '时段一UV':
+                                params.selected['时段二UV'] = params.selected[params.name]
+                                break
+                            case '时段二UV':
+                                params.selected['时段一UV'] = params.selected[params.name]
+                                break
+                            case '时段一原始单':
+                                params.selected['时段二原始单'] = params.selected[params.name]
+                                break
+                            case '时段二原始单':
+                                params.selected['时段一原始单'] = params.selected[params.name]
+                                break
+                            case '时段一有效原始单':
+                                params.selected['时段二有效原始单'] = params.selected[params.name]
+                                break
+                            case '时段二有效原始单':
+                                params.selected['时段一有效原始单'] = params.selected[params.name]
+                                break
+                        }
+                        originalOrder_lineChart_option.legend.selected = params.selected
+                        originalOrder_lineChart.setOption(originalOrder_lineChart_option)
+                    }
+                })
+            },
+            isshowEchart () {
+                if (this.searchData.compare === false) {
+                    if (this.searchData.dateTime[0] === this.searchData.dateTime[1] && this.searchData.dateTime2[0] === this.searchData.dateTime2[1]) {
+                        this.showEcharts = false
+                    } else {
+                        this.showEcharts = true
+                    }
+                } else {
+                    this.showEcharts = false
+                }
+            }
+        }
+    }
+</script>
+
+<style scoped>
+  @import "./../../assets/css/page/originalOrder.css";
+</style>

@@ -1,0 +1,626 @@
+<?php
+namespace app\script\command;
+
+use app\common\Constant;
+use app\common\Utility;
+use app\index\controller\Zlog;
+use think\Db;
+use think\Log;
+use think\console\Command;
+use think\console\Input;
+use think\console\Output;
+use think\console\input\Argument;
+use think\Exception;
+
+class WorkBench extends Command
+{
+
+    protected  $time;
+    protected  $log_suffix='';
+    /**
+     * 面板
+     */
+    protected function configure()
+    {
+        $this->setName('workBench')->setDescription('create work-bench view data!');
+        $this->addOption('time','t',Argument::OPTIONAL,'download date',date('Y-m-d',strtotime('-1day')));
+    }
+
+    /**
+     * 入口
+     * @param Input $input
+     * @param Output $output
+     */
+    protected function execute(Input $input, Output $output)
+    {
+        ini_set('memory_limit', '2048M');
+        $this->time = strtotime($input->getOption('time'));
+        $this->log_suffix = Utility::getLogSuffix($input->getOption('time'),false);
+        $this->output->writeln("input time :".$input->getOption('time'));
+        $this->output->writeln("create start!");
+        Log::log("workBench start!");
+        $time = time();
+        $start_time = date('Y-m-d 00:00:00',$this->time);
+        $end_time = date('Y-m-d 23:59:59',$this->time);
+        $this->createData($start_time,$end_time);
+        $this->output->writeln("step 1 end![url_count_m,url_count_m_detail]");
+        $this->countSearchEngine($start_time,$end_time);
+        $this->output->writeln("step 2 end![search_engines_count,keyword_statistic,from_domain_sort]");
+        $this->countFromDomain($start_time,$end_time);
+        $this->output->writeln("step 3 end![source_domain_count]");
+        $this->countFromArea($start_time,$end_time);
+        $this->output->writeln("step 4 end![source_area_count]");
+        $time = time()-$time;
+        $this->output->writeln("all steps end!".(int)($time/60) .':'.$time%60);
+        Log::log("workBench start end!".(int)($time/60) .':'.$time%60);
+    }
+
+    /**
+     * 统计来源域名
+     * @param $start_time
+     * @param $end_time
+     */
+    private function countFromDomain($start_time,$end_time){
+        $data=DB::table('url_statis_log'.$this->log_suffix)->field('COUNT(*)as total,domain_name')
+           ->where('log_id','IN',function($query)use($start_time,$end_time){
+                $query->table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',1)->group('session_id')
+                    ->field('MIN(log_id)as log_id');
+            })->group('domain_name')->select();
+        if(!empty($data)){
+            foreach ($data as $k=>$v){
+                $data[$k]['create_time']=$start_time;
+                $data[$k]['dstype']=1;
+                $data[$k]['d_id']=$this->searchDomain($v['domain_name']);
+                $data[$k]['num']=$v['total'];
+                unset($data[$k]['total'],$data[$k]['domain_name']);
+            }
+            try{
+//                Log::log(var_export($data,1));
+                DB::table('source_domain_count')->insertAll($data);
+            } catch (Exception $exception){
+                Log::error('['.$exception->getLine().']'.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
+            }
+        }
+
+        /* Mobile ***********************************************/
+        $data=DB::table('url_statis_log'.$this->log_suffix)->field('COUNT(*)as total,domain_name')
+            ->where('log_id','IN',function($query)use($start_time,$end_time){
+                $query->table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',2)->group('session_id')
+                    ->field('MIN(log_id)as log_id');
+            })->group('domain_name')->select();
+        if(!empty($data)){
+            foreach ($data as $k=>$v){
+                $data[$k]['create_time']=$start_time;
+                $data[$k]['dstype']=2;
+                $data[$k]['d_id']=$this->searchDomain($v['domain_name']);
+                $data[$k]['num']=$v['total'];
+                unset($data[$k]['total'],$data[$k]['domain_name']);
+            }
+            try{
+                DB::table('source_domain_count')->insertAll($data);
+            } catch (Exception $exception){
+                Log::error('['.$exception->getLine().']'.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
+            }
+        }
+
+    }
+
+
+    /**
+     * 统计搜索引擎
+     */
+    private function countSearchEngine($start_time,$end_time){
+        $data=DB::table('url_statis_log'.$this->log_suffix)->field('COUNT(*)as total,search_engines,keyworks')
+            ->where('search_engines','>',1)->where('log_id','IN',function($query)use($start_time,$end_time){
+            $query->table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',1)->group('session_id')
+                ->field('MIN(log_id)as log_id');
+        })->group('search_engines,keyworks')->select();
+        if(!empty($data)){
+            $fds=$kw=$se=[];
+            foreach ($data as $k=>$v){
+                $kw[$k]['create_time'] = $start_time;
+                $kw[$k]['dstype'] = 1;
+
+                $kw[$k]['kws_id'] = $this->searchKeywords($v['keyworks']);
+                $kw[$k]['se_id'] = $v['search_engines'];
+                $kw[$k]['num'] = $v['total'];
+
+                $se[$v['search_engines']]['create_time'] = $start_time;
+                $se[$v['search_engines']]['se_id'] = $v['search_engines'];
+                $se[$v['search_engines']]['count'] = isset($se[$v['search_engines']]['count'])?$se[$v['search_engines']]['count']+$v['total']:$v['total'];
+            }
+
+            foreach ($kw as $k=>$v){
+                $kw[$k]['rate'] = round($v['num']/$se[$v['se_id']]['count'],4);
+            }
+
+            $fds['create_time'] = $start_time;
+            $fds['dstype'] = 1;
+            $fds['from_mark']=isset($se[13]['count'])?$se[13]['count']:0;
+            $fds['from_engines']=0;
+            foreach ($se as $item){
+                if(in_array($item['se_id'],[2,3,4,7,8])){
+                    $fds['from_engines']+=$item['count'];
+                }
+            }
+            $fds['num']=DB::table('url_count_pc')->where('create_time','=',$start_time)->value('num',0);
+            $fds['from_other']=$fds['num'] - $fds['from_mark'] - $fds['from_engines'];
+            if($fds['num'] !=0){
+                $fds['from_mark_rate']=round($fds['from_mark']/$fds['num'],4) * 100;
+                $fds['from_engines_rate']=round($fds['from_engines']/$fds['num'],4) * 100;
+                $fds['from_other_rate']=round($fds['from_other']/$fds['num'],4) * 100;
+            }
+
+            try{
+                DB::table('source_domain_sort')->insert($fds);
+                DB::table('search_engines_count_pc')->insertAll(array_values($se));
+                DB::table('keyword_statistics')->insertAll($kw);
+            } catch (Exception $exception){
+                Log::error('['.$exception->getLine().']'.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
+            }
+        }
+    // Mobile +++++++++++++++++++++++++++++
+        $data=DB::table('url_statis_log'.$this->log_suffix)->field('COUNT(*)as total,search_engines,keyworks')
+            ->where('search_engines','>',1)->where('log_id','IN',function($query)use($start_time,$end_time){
+                $query->table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',2)->group('session_id')
+                    ->field('MIN(log_id)as log_id');
+            })->group('search_engines,keyworks')->select();
+        if(!empty($data)){
+            $kw=$se=[];
+            foreach ($data as $k=>$v){
+                $kw[$k]['create_time'] = $start_time;
+                $kw[$k]['dstype'] = 2;
+
+                $kw[$k]['kws_id'] = $this->searchKeywords($v['keyworks']);
+                $kw[$k]['se_id'] = $v['search_engines'];
+                $kw[$k]['num'] = $v['total'];
+
+                $se[$v['search_engines']]['create_time'] = $start_time;
+                $se[$v['search_engines']]['se_id'] = $v['search_engines'];
+                $se[$v['search_engines']]['count'] = isset($se[$v['search_engines']]['count'])?$se[$v['search_engines']]['count']+$v['total']:$v['total'];
+            }
+
+            foreach ($kw as $k=>$v){
+                $kw[$k]['rate'] = round($v['num']/$se[$v['se_id']]['count'],4);
+            }
+
+            $fds['create_time'] = $start_time;
+            $fds['dstype'] = 2;
+            $fds['from_mark']=isset($se[13]['count'])?$se[13]['count']:0;
+            $fds['from_engines']=0;
+            foreach ($se as $item){
+                if(in_array($item['se_id'],[2,3,4,7,8])){
+                    $fds['from_engines']+=$item['count'];
+                }
+            }
+            $fds['num']=DB::table('url_count_m')->where('create_time','=',$start_time)->value('num',0);
+            $fds['from_other']=$fds['num'] - $fds['from_mark'] - $fds['from_engines'];
+            if($fds['num'] !=0){
+                $fds['from_mark_rate']=round($fds['from_mark']/$fds['num'],4) * 100;
+                $fds['from_engines_rate']=round($fds['from_engines']/$fds['num'],4) * 100;
+                $fds['from_other_rate']=round($fds['from_other']/$fds['num'],4) * 100;
+            }
+
+            try{
+                DB::table('source_domain_sort')->insert($fds);
+                DB::table('search_engines_count_m')->insertAll(array_values($se));
+                DB::table('keyword_statistics')->insertAll($kw);
+            } catch (Exception $exception){
+                Log::error('['.$exception->getLine().']'.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
+            }
+        }
+
+//        $data=DB::table('url_statis_log'.$this->log_suffix)->field('COUNT(*)as total,search_engines')->where('log_id','IN',function($query)use($start_time,$end_time){
+//            $query->table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',1)->group('session_id')
+//                ->field('MIN(log_id)as log_id');
+//        })->group('search_engines')->select();
+//        if(!empty($data)){
+//            foreach ($data as $k=>$v){
+//                $data[$k]['create_time'] = $start_time;
+//                $data[$k]['count'] = $v['total'];
+//                $data[$k]['se_id'] = $v['search_engines'];
+//                unset($data[$k]['total']);
+//                unset($data[$k]['search_engines']);
+//            }
+//            try{
+//                DB::table('search_engines_count_m')->insertAll($data);
+//            }catch (Exception $exception){
+//                Log::error($exception->getLine().$exception->getCode().PHP_EOL.$exception->getTraceAsString());;
+//            }
+//        }
+
+    }
+
+    /**
+     * 查询域名编号
+     * @param string $domain
+     * @return int
+     */
+    private function searchDomain($domain){
+        $domain=preg_replace('/([\x80-\xff]*)/i','',$domain);
+        $kw_id =DB::table('domains')->where('domain','=',trim($domain))->value('d_id',0);
+        if($kw_id <= 0){
+            try{
+                $kw_id = DB::table('domains')->insertGetId(['domain'=>substr(trim($domain),0,255)]);
+            }catch (Exception $exception){
+                Log::error('['.$exception->getLine().']'.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
+                exit;
+            }
+        }
+        return $kw_id;
+    }
+
+    /**
+     * 查询关键字编号
+     * @param string $keyword
+     * @return int|mixed|string
+     */
+    private function searchKeywords($keyword){
+        $kw_id =DB::table('keywords_search')->where('keyword','=',trim($keyword))->value('kws_id',0);
+        if($kw_id <= 0){
+            try{
+                $kw_id = DB::table('keywords_search')->insertGetId(['keyword'=>substr(trim($keyword),0,255)]);
+            }catch (Exception $exception){
+                Log::error('['.$exception->getLine().']'.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
+                exit;
+            }
+        }
+        return $kw_id;
+    }
+
+
+    protected function createData($start_time,$end_time){
+
+        $data_pc = $this->getDate2('1',$start_time,$end_time);
+        $data_m = $this->getDate2('2',$start_time,$end_time);
+
+        try{
+            DB::table('url_count_pc')->insert($data_pc['data']);
+            DB::table('url_count_m')->insert($data_m['data']);
+
+            DB::table('url_count_pc_detail')->insertAll($data_pc['data_detail']);
+            DB::table('url_count_m_detail')->insertAll($data_m['data_detail']);
+        }catch (Exception $e){
+             Log::error($e->getMessage().PHP_EOL.$e->getTraceAsString());
+        }
+
+    }
+
+    /**
+     * 时分uv 不去重
+     * @param $dstype
+     * @param $start_time
+     * @param $end_time
+     * @return array
+     */
+    protected function getDate($dstype,$start_time,$end_time){
+        $data_pc['create_time'] = date('Y-m-d 00:00:00',$this->time);
+        $data_pc_detail =[];
+        $data_pc['pv']=0;
+        $data_pc['time']=0;
+        $pv= DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group('hours')
+            ->field('COUNT(*) as total,SUM(long_time) as long_time,COUNT(DISTINCT cookie) as cookie,COUNT(DISTINCT session_id) as session_id,COUNT(DISTINCT ip_address) as ip_address,EXTRACT(HOUR FROM log_time) as hours')->select();
+        foreach ($pv as $key=>$item){
+            $data_pc_detail[$key]['hour'] = $item['hours'];
+            $data_pc['pv']+=$item['total'];
+            $data_pc_detail[$key]['pv']=$item['total'];
+            $data_pc_detail[$key]['uv']=$item['cookie'];
+            $data_pc_detail[$key]['ip']=$item['ip_address'];
+            $data_pc_detail[$key]['time']=$item['long_time'];
+            $data_pc['time']+=$item['long_time'];
+            $data_pc_detail[$key]['num']=$item['session_id'];
+
+            $data_pc_detail[$key]['num_av'] = round($item['session_id'] / $item['cookie'],2);
+            $data_pc_detail[$key]['time_av'] = round($item['long_time'] / $item['session_id']);
+            $data_pc_detail[$key]['deep_av'] = round($item['total']/$item['session_id']);
+            $data_pc_detail[$key]['user_av'] = round($item['total']/$item['cookie']);
+        }
+
+        $uv_ip_num= DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)
+            ->field('COUNT(DISTINCT cookie) uv,COUNT(DISTINCT ip_address) ip,COUNT(DISTINCT session_id) num')->find();
+        $data_pc['uv'] = $uv_ip_num['uv'];
+        $data_pc['ip'] = $uv_ip_num['ip'];
+        $data_pc['num'] = $uv_ip_num['num'];
+
+        $data_pc['num_av'] = round($data_pc['num'] / $data_pc['uv'],2);
+        $data_pc['time_av'] = round($data_pc['time'] / $data_pc['num']);
+        $data_pc['deep_av'] = round($data_pc['pv']/$data_pc['num']);
+        $data_pc['user_av'] = round($data_pc['pv']/$data_pc['uv']);
+
+        $new_uv_sub = DB::table('url_statis_log'.$this->log_suffix)->where('dstype','=',$dstype)->group('cookie')->having("min(log_time) between '".$start_time."' and '".$end_time."'")
+            ->field('min(log_time) as log_time')->buildSql();
+        $new_uv= DB::table($new_uv_sub.' a')->field('COUNT(a.log_time) as total,EXTRACT(HOUR FROM a.log_time) as hours')->group('hours')->select();
+
+        $new_uv_t =[];
+        $data_pc['new_uv']=0;
+        if(!empty($new_uv)){
+            foreach ($new_uv as $v){
+                $new_uv_t[$v['hours']] = $v['total'];
+                $data_pc['new_uv']+=$v['total'];
+            }
+        }
+        $jump_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)
+            ->group('cookie')->having('count(cookie) = 1')->field('log_time')->buildSql();
+        $jump= DB::table($jump_sub.' a')->field('COUNT(a.log_time) as total,EXTRACT(HOUR FROM a.log_time) as hours')->group('hours')->select();
+        $data_pc['num_jump'] =0;
+        $jump_t=[];
+        if(!empty($jump)){
+            foreach ($jump as $v){
+                $jump_t[$v['hours']] = $v['total'];
+                $data_pc['num_jump']+=$v['total'];
+            }
+        }
+
+        $back_sub  = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)
+            ->group('cookie')->having('count(session_id) > 1')->field('MAX(log_time) as log_time')->buildSql();
+        $data_pc['num_back']=0;
+        $back= DB::table($back_sub.' a')->field('COUNT(a.log_time) as total,EXTRACT(HOUR FROM a.log_time) as hours')->group('hours')->select();
+        $back_t=[];
+        if(!empty($back)){
+            foreach ($back as $v){
+                $back_t[$v['hours']] = $v['total'];
+                $data_pc['num_back']+=$v['total'];
+            }
+        }
+
+        foreach ($data_pc_detail as $key => $value){
+            $data_pc_detail[$key]['create_time']=date('Y-m-d 00:00:00',$this->time);
+            $data_pc_detail[$key]['new_uv'] = isset($new_uv_t[$value['hour']])?$new_uv_t[$value['hour']]:0;
+            $data_pc_detail[$key]['num_jump'] = isset($jump_t[$value['hour']])?$jump_t[$value['hour']]:0;
+            $data_pc_detail[$key]['num_back'] = isset($back_t[$value['hour']])?$back_t[$value['hour']]:0;
+        }
+
+        return ['data'=>$data_pc,'data_detail'=>$data_pc_detail];
+    }
+
+    /**
+     * 时分uv 去重
+     * @param $dstype
+     * @param $start_time
+     * @param $end_time
+     * @return array
+     */
+    protected function getDate2($dstype,$start_time,$end_time){
+        $data_pc['create_time'] = date('Y-m-d 00:00:00',$this->time);
+        $data_pc_detail =[];
+        $data_pc['pv']=0;
+        $data_pc['time']=0;
+        $data_pc['uv'] = 0;
+        $data_pc['ip'] = 0;
+        $data_pc['num'] = 0;
+        $pv= DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group('hours')
+            ->field('COUNT(*) as total,EXTRACT(HOUR FROM log_time) as hours')->select();
+        $uv_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)
+            ->group('cookie')
+            ->field('MIN(log_time)as log_time')
+            ->field('(CASE WHEN round((UNIX_TIMESTAMP(Max(log_time))-UNIX_TIMESTAMP(MIN(log_time)))/60) > 30*COUNT(log_time) THEN 0 ELSE UNIX_TIMESTAMP(MAX(log_time))-UNIX_TIMESTAMP(MIN(log_time)) END)as lg')
+            ->buildSql();
+        $uv = DB::table($uv_sub.' a')->field('SUM(lg)as lg,COUNT(*)as total,EXTRACT(HOUR FROM log_time) as hours')->group('hours')->select();
+        $num_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group('session_id')
+            ->field('MIN(log_time)as log_time,SUM(session_live)as num')->buildSql();
+        $num = DB::table($num_sub.' a')->field('SUM(num)as total,EXTRACT(HOUR FROM log_time) as hours')->group('hours')->select();
+        $ip_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group('ip_address')
+            ->field('MIN(log_time)as log_time')->buildSql();
+        $ip = DB::table($ip_sub.' a')->field('COUNT(*)as total,EXTRACT(HOUR FROM log_time) as hours')->group('hours')->select();
+        if(!empty($uv)){
+            foreach ($uv as $v){
+                $uv_t[$v['hours']]['total'] = $v['total'];
+                $uv_t[$v['hours']]['long'] = $v['lg'];
+            }
+        }
+        if(!empty($num)){
+            foreach ($num as $v){
+                $num_t[$v['hours']] = $v['total'];
+            }
+        }
+        if(!empty($ip)){
+            foreach ($ip as $v){
+                $ip_t[$v['hours']] = $v['total'];
+            }
+        }
+        foreach ($pv as $key=>$item){
+            $data_pc_detail[$key]['hour'] = $item['hours'];
+            $data_pc['pv']+=$item['total'];
+            $data_pc_detail[$key]['pv']=$item['total'];
+            $long = isset($uv_t[$item['hours']]['long'])?$uv_t[$item['hours']]['long']:0;
+            $data_pc['time']+=$long;
+            $data_pc_detail[$key]['time']=$long;
+            $cookie = isset($uv_t[$item['hours']]['total'])?$uv_t[$item['hours']]['total']:0;
+            $data_pc['uv']+=$cookie;
+            $data_pc_detail[$key]['uv']=$cookie;
+            $ip_address = isset($ip_t[$item['hours']])?$ip_t[$item['hours']]:0;
+            $data_pc['ip']+=$ip_address;
+            $data_pc_detail[$key]['ip']=$ip_address;
+            $session_id = isset($num_t[$item['hours']])?$num_t[$item['hours']]:0;
+            $data_pc['num']+=$session_id;
+            $data_pc_detail[$key]['num']=$session_id;
+
+            $data_pc_detail[$key]['num_av'] = round($session_id / $cookie,2);
+            $data_pc_detail[$key]['time_av'] = round($long / $session_id);
+            $data_pc_detail[$key]['deep_av'] = round($item['total']/$session_id);
+            $data_pc_detail[$key]['user_av'] = round($item['total']/$cookie);
+        }
+
+        $data_pc['num_av'] = round($data_pc['num'] / $data_pc['uv'],2);
+        $data_pc['time_av'] = round($data_pc['time'] / $data_pc['num']);
+        $data_pc['deep_av'] = round($data_pc['pv']/$data_pc['num']);
+        $data_pc['user_av'] = round($data_pc['pv']/$data_pc['uv']);
+
+        $new_uv_sub = DB::table('url_statis_log'.$this->log_suffix)->where('dstype','=',$dstype)->group('cookie')->having("min(log_time) between '".$start_time."' and '".$end_time."'")
+            ->field('min(log_time) as log_time')->buildSql();
+        $new_uv= DB::table($new_uv_sub.' a')->field('COUNT(a.log_time) as total,EXTRACT(HOUR FROM a.log_time) as hours')->group('hours')->select();
+
+        $new_uv_t =[];
+        $data_pc['new_uv']=0;
+        if(!empty($new_uv)){
+            foreach ($new_uv as $v){
+                $new_uv_t[$v['hours']] = $v['total'];
+                $data_pc['new_uv']+=$v['total'];
+            }
+        }
+        $jump_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)
+            ->group('cookie')->having('count(cookie) = 1')->field('log_time')->buildSql();
+        $jump= DB::table($jump_sub.' a')->field('COUNT(a.log_time) as total,EXTRACT(HOUR FROM a.log_time) as hours')->group('hours')->select();
+        $data_pc['num_jump'] =0;
+        $jump_t=[];
+        if(!empty($jump)){
+            foreach ($jump as $v){
+                $jump_t[$v['hours']] = $v['total'];
+                $data_pc['num_jump']+=$v['total'];
+            }
+        }
+
+        $back_sub  = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)
+            ->group('cookie')->having('count(session_id) > 1')->field('MAX(log_time) as log_time')->buildSql();
+        $data_pc['num_back']=0;
+        $back= DB::table($back_sub.' a')->field('COUNT(a.log_time) as total,EXTRACT(HOUR FROM a.log_time) as hours')->group('hours')->select();
+        $back_t=[];
+        if(!empty($back)){
+            foreach ($back as $v){
+                $back_t[$v['hours']] = $v['total'];
+                $data_pc['num_back']+=$v['total'];
+            }
+        }
+
+        foreach ($data_pc_detail as $key => $value){
+            $data_pc_detail[$key]['create_time']=date('Y-m-d 00:00:00',$this->time);
+            $data_pc_detail[$key]['new_uv'] = isset($new_uv_t[$value['hour']])?$new_uv_t[$value['hour']]:0;
+            $data_pc_detail[$key]['num_jump'] = isset($jump_t[$value['hour']])?$jump_t[$value['hour']]:0;
+            $data_pc_detail[$key]['num_back'] = isset($back_t[$value['hour']])?$back_t[$value['hour']]:0;
+        }
+
+        $urls = 'https://www.aizhan.com/cha/houxue.com/';
+        $get = file_get_contents($urls);
+        $pattern = '/t1":\[\d+/';
+        $mat=[];
+        preg_match_all($pattern, $get, $mat);
+        if(isset($mat[0][$dstype-1])){
+            $data_pc['top10'] = substr($mat[0][$dstype-1],5);
+        }
+        $pattern = '/t5":\[\d+/';
+        preg_match_all($pattern, $get, $mat);
+        if(isset($mat[0][$dstype-1])){
+            $data_pc['top50'] = substr($mat[0][$dstype-1],5);
+        }
+
+        return ['data'=>$data_pc,'data_detail'=>$data_pc_detail];
+    }
+
+    /**
+     * wdy
+     * 地区分uv去重
+     * @param $dstype
+     * @param $area_type 1:域名地区 2：IP地区
+     * @param $start_time
+     * @param $end_time
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
+    protected function getDate3($dstype,$area_type,$start_time,$end_time){
+        $group_col = '';
+        if($area_type==1){
+            $group_col = 'area_id';
+        }elseif($area_type==2){
+            $group_col = 'domain_area_id';
+        }
+        $data_pc['create_time'] = date('Y-m-d 00:00:00',$this->time);
+        $data_pc['dstype']=$dstype;
+        $data_pc['area_id']=0;
+        $data_pc['pv']=0;
+        $data_pc['percent']=0;
+        $data_pc['uv'] = 0;
+        $data_pc['ip'] = 0;
+        $data_pc['access_num'] = 0;
+        $data_pc['new_uv']=0;
+        $data_pc['num_jump']=0;
+        //total
+        $total_arr= DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)
+            ->field('COUNT(*) as total')->select();
+        $total = $total_arr[0]['total'];
+        //pv
+        $pv= DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group($group_col)
+            ->field('COUNT(*) as pv,'.$group_col)->select();
+        //uv
+        $uv_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group('cookie')
+            ->field('log_id,'.$group_col)->buildSql();
+        $uv = DB::table($uv_sub.' a')->field('COUNT(*) as uv,'.$group_col)->group($group_col)->select();
+        //num
+        $num_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group('session_id')
+            ->field('log_id,'.$group_col)->buildSql();
+        $access_num = DB::table($num_sub.' a')->field('COUNT(*)as access_num,'.$group_col)->group($group_col)->select();
+        //ip
+        $ip_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group('ip_address')
+            ->field('log_id,'.$group_col)->buildSql();
+        $ip = DB::table($ip_sub.' a')->field('COUNT(*)as ip,'.$group_col)->group($group_col)->select();
+        //new_uv
+        $new_uv_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)->group('cookie')
+            ->field('log_id,'.$group_col)->buildSql();
+        $new_uv= DB::table($new_uv_sub.' a')->field('COUNT(*) as new_uv,'.$group_col)->group($group_col)->select();
+        //num_jump
+        $num_jump_sub = DB::table('url_statis_log'.$this->log_suffix)->where('log_time','between',[$start_time,$end_time])->where('dstype','=',$dstype)
+            ->group('cookie')->having('count(cookie) = 1')->field('log_id,'.$group_col)->buildSql();
+        $num_jump= DB::table($num_jump_sub.' a')->field('COUNT(*) as num_jump,'.$group_col)->group($group_col)->select();
+        //按所有地区拼上所有字段
+        foreach ($pv as $k=>$v){
+            $flag = $v[$group_col];
+            $data[$k]['create_time'] = date('Y-m-d 00:00:00',$this->time);
+            $data[$k]['dstype']=$dstype;
+            $data[$k]['area_type']=$area_type;
+            $data[$k]['area_id']=$flag;
+            $data[$k]['pv']=$v['pv'];
+            $data[$k]['uv']=0;
+            $data[$k]['access_num']=0;
+            $data[$k]['ip']=0;
+            $data[$k]['new_uv']=0;
+            $data[$k]['num_jump']=0;
+            foreach($uv as $k1=>$v1){
+                if($v1[$group_col] == $flag){
+                    $data[$k]['uv']=$v1['uv'];
+                }
+            }
+            foreach($access_num as $k2=>$v2){
+                if($v2[$group_col] == $flag){
+                    $data[$k]['access_num']=$v2['access_num'];
+                }
+            }
+            foreach($ip as $k3=>$v3){
+                if($v3[$group_col] == $flag){
+                    $data[$k]['ip']=$v3['ip'];
+                }
+            }
+            foreach($new_uv as $k4=>$v4){
+                if($v4[$group_col] == $flag){
+                    $data[$k]['new_uv']=$v4['new_uv'];
+                }
+            }
+            foreach($num_jump as $k5=>$v5){
+                if($v5[$group_col] == $flag){
+                    $data[$k]['num_jump']=$v5['num_jump'];
+                }
+            }
+            $data[$k]['percent'] = round($data[$k]['pv'] / $total,4);
+        }
+        // 插入统计
+        try{
+//            Log::log(var_export($data,1));
+            DB::table('source_area_count')->insertAll($data);
+        } catch (Exception $exception){
+            Log::error('['.$exception->getLine().']'.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
+        }
+//        return ['data'=>$data_pc];
+    }
+
+    /**
+     * wdy
+     * 统计来源地区
+     */
+    private function countFromArea($start_time,$end_time){
+        // ip地区(PC/移动)
+        $this->getDate3(1,1,$start_time,$end_time);
+        $this->getDate3(2,1,$start_time,$end_time);
+        // 域名地区(PC/移动)
+        $this->getDate3(1,2,$start_time,$end_time);
+        $this->getDate3(2,2,$start_time,$end_time);
+    }
+}

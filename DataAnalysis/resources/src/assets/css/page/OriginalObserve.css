@@ -1,0 +1,97 @@
+.mark-star-button {
+  display: inline-block;
+  width: 150px;
+  font-size: 14px;
+  color: #3399FF;
+  cursor: pointer;
+}
+.treeView {
+  width: 80%;
+  border: 1px solid #eee;
+}
+.treeView .title {
+  height: 30px;
+}
+.treeView .total {
+  height: 30px;
+  line-height: 30px;
+  border: 1px solid lightblue;
+  text-align: center;
+  font-size: 14px;
+}
+.treeView .total > span {
+  font-size: 16px;
+  margin-left: 10px;
+  font-weight: bold;
+}
+.treeView ul {
+  display: block;
+}
+.treeView ul > li {
+  float: left;
+  margin: 5px 6px;
+  padding: 5px 5px;
+  width: 14%;
+  color: #333;
+  font-size: 13px;
+  border: 1px solid lightblue;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+}
+.treeView ul > li > .name {
+  margin: 5px 0;
+  font-size: 14px;
+}
+.treeView ul > li > .number {
+  height: 25px;
+  line-height: 25px;
+  font-weight: bold;
+}
+.treeView ul > li > .percent {
+  height: 25px;
+  line-height: 25px;
+  font-size: 12px;
+}
+.treeView ul > li > .logo {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  color: #fff;
+  border-radius: 50px;
+  text-align: center;
+  font-family: '楷体';
+  text-indent: -3px;
+}
+
+.treeView ul.one > li > .logo {
+  background-color: pink;
+}
+.treeView ul.two > li > .logo {
+  background-color: lightblue;
+}
+.treeView ul.three > li > .logo {
+  background-color: #fbad91;
+}
+
+.treeView ul > li.none {
+  background-color: #fff;
+}
+.treeView ul.one > li.active {
+  background-color: #f9eff1;
+}
+.treeView ul.two > li.active {
+  background-color: #dae9ef;
+}
+.treeView ul.two > li.normal {
+  background-color: #f9eff1;
+}
+.treeView ul.three > li.active {
+  background-color: #f1ddd5;
+}
+.treeView ul.three > li.normal {
+  background-color: #dae9ef;
+}

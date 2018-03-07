@@ -1,0 +1,28 @@
+.rect ul.fromSortDataDetail {
+    width: 100%;
+    min-width: 900px;
+}
+.rect ul.fromSortDataDetail li {
+    width: 24%;
+    height: 58px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 28px;
+}
+.rect ul.fromSortDataDetail li p:last-child {
+    font-size: 15px;
+    font-weight: bold;
+    color: #b81717;
+}
+
+.fromSort-PieChart, .fromSort-LineChart {
+  width: 48%;
+}
+#fromSort_PieChart {
+    width: 90%;
+    height: 400px;
+}
+#fromSort_LineChart {
+    width: 90%;
+    height: 400px;
+}

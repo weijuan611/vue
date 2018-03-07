@@ -1,0 +1,384 @@
+<template>
+    <page-wrap>
+        <!-- 搜索栏 -->
+        <search-wrap>
+            <el-form ref="form" :model="searchData" label-width="100px" size="mini">
+                <el-row :gutter="21">
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="关键词：">
+                                <el-input v-model="searchData.keyword" placeholder="请输入内容"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="添加人：">
+                                <el-input v-model="searchData.user_name" placeholder="请输入内容"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="审核状态：">
+                                <el-select v-model="searchData.status" placeholder="请选择审核状态">
+                                    <el-option
+                                            v-for="item in assessOptions"
+                                            :key="item.value"
+                                            :label="item.label"
+                                            :value="item.value">
+                                    </el-option>
+                                </el-select>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                  </el-row>
+
+                  <el-row :gutter="21">
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="添加时间：">
+                                <el-date-picker
+                                        v-model="searchData.add_time"
+                                        type="daterange"
+                                        value-format="yyyy-MM-dd"
+                                        range-separator="至"
+                                        start-placeholder="开始日期"
+                                        end-placeholder="结束日期">
+                                </el-date-picker>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="16">
+                        <el-form-item label-width="0">
+                            <el-button type="primary" @click="onSubmit">查询</el-button>
+                            <el-button type="danger" @click="onClear">清空</el-button>
+                            <el-button type="success" @click="openExportData = true" :disabled="!buttonControl.keywordcheckexportdaily">导出日报</el-button>
+
+                            <el-tag
+                              :closable="false"
+                              size="medium"
+                              style="margin-left: 15px;"
+                              type="warning">
+                              <i class="el-icon-info"></i>
+                              {{'你今天还需上传' + needKeyword + '个关键字'}}
+                            </el-tag>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+            </el-form>
+        </search-wrap>
+
+
+
+        <!-- 表格 -->
+        <table-wrap>
+            <div class="withTableHeader">
+                <el-button type="primary" plain size="mini" @click="handleOpenEditKeywordBatch" :disabled="!buttonControl.keywordcheckcheck">批量通过</el-button>
+            </div>
+            <el-table
+                    ref="table"
+                    :data="tableData"
+                    size="mini"
+                    @select="selectTableRow"
+                    @select-all="selectTableAllRow"
+                    :height="tabTableHeight">
+                <el-table-column fixed="left" type="selection" width="55px"></el-table-column>
+                <el-table-column
+                        show-overflow-tooltip
+                        label="关键词"
+                        prop="keyword">
+                </el-table-column>
+                <el-table-column
+                        width="120px"
+                        label="分类"
+                        prop="categories">
+                </el-table-column>
+                <el-table-column
+                        label="审核状态"
+                        width="90px"
+                        prop="status">
+                    <template slot-scope="props">
+                      <span v-show="props.row.status == 0" class="check_orange">待审核</span>
+                      <span v-show="props.row.status == 1" class="check_green">已通过</span>
+                      <span v-show="props.row.status == 2" class="check_red">已拒绝</span>
+                    </template>
+                </el-table-column>
+                <el-table-column
+                        label="类型"
+                        width="90px"
+                        prop="type">
+                    <template slot-scope="props">
+                        <span v-show="props.row.type == 0" class="border_check_orange">添加</span>
+                        <span v-show="props.row.type == 1" class="border_check_green">编辑</span>
+                        <span v-show="props.row.type == 3" class="border_check_red">删除</span>
+                    </template>
+                </el-table-column>
+                <el-table-column
+                        label="添加人"
+                        width="100px"
+                        prop="user_name">
+                </el-table-column>
+                <el-table-column
+                        label="添加时间"
+                        width="150px"
+                        prop="add_time">
+                </el-table-column>
+                <el-table-column
+                        label="驳回原因"
+                        show-overflow-tooltip
+                        prop="memo">
+                </el-table-column>
+                <el-table-column width="100px" label="操作">
+                    <template slot-scope="scope">
+                        <el-button type="text" plain size="mini" icon="el-icon-edit"
+                                   @click="handleEdit(scope.$index, scope.row)" :disabled=!buttonControl.keywordcheckcheck>审核
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+
+
+        <!-- dialog导出日报开始 -->
+        <el-dialog
+                title="导出日报"
+                :visible.sync="openExportData"
+                width="500px"
+                :before-close="closeExportData">
+            <div class="block">
+                <span class="demonstration">选择导出日志日期：</span>
+                <el-date-picker
+                        v-model="exportdataTime"
+                        type="date"
+                        value-format="yyyy-MM-dd"
+                        placeholder="选择日期">
+                </el-date-picker>
+            </div>
+            <span slot="footer" class="dialog-footer">
+                <el-button @click="openExportData = false">取 消</el-button>
+                <el-button type="primary" @click="onExport">确 定</el-button>
+            </span>
+        </el-dialog>
+        <!-- dialog导出日报结束 -->
+
+
+
+        <!-- 分页 -->
+        <pagination-wrap>
+            <new-pagination
+                    :total="paginationData.total"
+                    :propCurrentPage="paginationData.currentPage"
+                    @initPaginationData="showPaginationData"
+                    @handleSizeChange="showSizeChange"
+                    @handleCurrentChange="showCurrentChange"
+            />
+        </pagination-wrap>
+
+        <el-dialog
+                width="450px"
+                :title="'审核: ' + checkTitle"
+                :visible.sync="openEditRoleDialog"
+                @close="handleCloseRoleDialog">
+
+            <el-form :model="editRoleForm" size="small" label-width="100px">
+                <el-form-item label="关键词分类：">
+                    <span>{{categories}}</span>
+                </el-form-item>
+                <el-form-item label="审核结果">
+                    <el-radio-group v-model="editRoleForm.check_type">
+                        <el-radio :label="1">通过</el-radio>
+                        <el-radio :label="2">不通过</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+                <el-form-item label="拒绝原因">
+                    <el-input v-model="editRoleForm.memo"></el-input>
+                </el-form-item>
+            </el-form>
+            <div slot="footer">
+                <el-button size="mini" @click="handleCloseRoleDialog">取 消</el-button>
+                <el-button size="mini" type="primary" @click="handleConfirmRoleEdit">确 定</el-button>
+            </div>
+        </el-dialog>
+    </page-wrap>
+</template>
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import paginationWrap from './../../components/pageStructure/paginationWrap.vue'
+    import NewPagination from './../../components/base/NewPagination.vue'
+    import {mapState} from 'vuex'
+    import { getDates }  from './../../assets/js/baseFunc/baseSelfFunc'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, TableWrap, paginationWrap, NewPagination
+        },
+        data() {
+            return {
+                searchData: {
+                    keyword: '',
+                    user_name:'',
+                    status:'',
+                    add_time:[],
+                },
+                tableData: [],
+                needKeyword:0,
+                exportdataTime:'',
+                buttonControl:[],
+                paginationData: {},
+                openAddRoleDialog: false,
+                openEditRoleDialog: false,
+                openExportData: false,
+                checkMany :[],
+                categories: '',
+                checkTitle: '',
+                editRoleForm:{
+                    id: '',
+                    memo: '',
+                    check_type: '',
+                },
+                assessOptions: [
+                    {
+                        value: 0,
+                        label: '待审核'
+                    },
+                    {
+                        value: 1,
+                        label: '审核通过'
+                    },
+                    {
+                        value: 2,
+                        label: '审核不通过'
+                    },
+                ],
+            }
+        },
+        computed: {
+            ...mapState('navTabs', [
+                'tabTableHeight'
+            ])
+        },
+        mounted() {
+            this.initSearchData()
+            this.onSubmit()
+        },
+        methods: {
+            initSearchData() {
+                this.searchData.keyword = '';
+                this.searchData.user_name = '';
+                this.searchData.add_time = [];
+                this.searchData.status = '';
+                this.exportdataTime = getDates('today')
+            },
+            showPaginationData(data) {
+                this.paginationData.pageSizes = data.pageSizes
+                this.paginationData.pageSize = data.pageSize
+                this.paginationData.currentPage = data.currentPage
+            },
+            onSubmit: function (action) {
+                let that = this
+                if (action !== 'changeCurrentPage') {
+                    that.paginationData.currentPage = 1
+                }
+                if (action !== 'changeSort' && action !== 'changeCurrentPage') {
+                    that.$refs.table.clearSort()
+                }
+                this.$ajax.post('keywordcheck/index', {search: this.searchData, page: this.paginationData})
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.tableData = res.data.tableData
+                            that.needKeyword = res.data.needKeyword
+                            that.paginationData.total = res.data.total
+                            that.buttonControl = res.data.buttonControl
+                        }
+                    })
+                    .catch(function (err) {
+                    })
+            },
+            onClear() {
+                this.initSearchData()
+                this.onSubmit()
+            },
+
+            onExport() {
+                let that = this
+                that.$ajax.post('/keywordcheck/exportdaily', {"type":"1"})
+                    .then(function (res) {
+                        if (res.data) {
+                            window.location = 'index.php/keywordcheck/exportdaily?dataTime=' + that.exportdataTime;
+                        }
+                    })
+                    .catch(function(err) {
+                    })
+                that.openExportData = false
+            },
+            closeExportData() {
+
+            },
+            handleExportDataCancel() {
+                this.openEditTagConfiguration = false
+                this.tagsOperateData.tagId = -1
+                this.tagsOperateData.tagName = ''
+            },
+
+            showSizeChange(val) {
+                this.paginationData.pageSize = val
+                this.onSubmit()
+            },
+            showCurrentChange(val) {
+                this.paginationData.currentPage = val
+                this.onSubmit('changeCurrentPage')
+            },
+            handleCloseRoleDialog() {
+                this.openAddRoleDialog = false;
+                this.openEditRoleDialog = false
+            },
+            handleEdit (index, row) {
+                this.checkTitle = row.keyword
+                this.categories = row.categories
+                let that = this
+                that.openEditRoleDialog = true;
+                that.editRoleForm.id = row['id'];
+            },
+            handleConfirmRoleEdit() {
+                let that = this;
+                this.$ajax.post('keywordcheck/check', this.editRoleForm)
+                    .then(function (res) {
+                        that.$message({
+                            message: res.data.msg,
+                            type: res.data.type
+                        });
+                        if (res.data.type === 'success'){
+                            that.onSubmit();
+                            that.openEditRoleDialog=false
+                        }
+                    })
+                    .catch(function (err) {
+                    })
+            },
+            selectTableRow (selection) {
+                this.checkMany = selection.map(m => m.id)
+            },
+            selectTableAllRow (selection) {
+                this.checkMany = selection.map(m => m.id)
+            },
+            handleOpenEditKeywordBatch () {
+                let that = this;
+                this.$ajax.post('keywordcheck/check', {type:'many',id:that.checkMany})
+                    .then(function (res) {
+                        that.$message({
+                            message: res.data.msg,
+                            type: res.data.type
+                        });
+                        if (res.data.type === 'success'){
+                            that.onSubmit();
+                            that.openEditRoleDialog=false
+                        }
+                    })
+            },
+        }
+    }
+</script>
