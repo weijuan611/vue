@@ -60,7 +60,7 @@ class OrderHandle extends Command
                 $uv_pc = Db::table('url_count_pc')->where('create_time','=',$this->time)->value('uv');
                 $result['data']['source_order_count']['uv']= $uv_m + $uv_pc;
                 Db::table('order_count')->insert($result['data']['order_count']);
-                Db::table('source_order_count')->insert($result['data']['source_order_count']);
+                Db::table('source_order_count')->insert($result['data']['source_order_count']['uv']);
             }catch (Exception $e){
                 Log::error($e->getMessage().PHP_EOL.$e->getTraceAsString());
             }

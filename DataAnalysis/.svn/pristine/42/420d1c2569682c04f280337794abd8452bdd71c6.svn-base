@@ -107,7 +107,6 @@
         <table-wrap>
             <div class="withTableHeader">
                 <el-button type="primary" plain size="mini" @click="handleOpenEditKeywordBatch" :disabled="!buttonControl.keywordcheckcheck">批量通过</el-button>
-                <el-button type="primary" plain size="mini" @click="handleOpenEditKeywordunBatch" :disabled="!buttonControl.keywordcheckcheck">批量不通过</el-button>
             </div>
             <el-table
                     ref="table"
@@ -429,20 +428,6 @@
             handleOpenEditKeywordBatch () {
                 let that = this;
                 this.$ajax.post('keywordcheck/check', {type:'many',id:that.checkMany})
-                    .then(function (res) {
-                        that.$message({
-                            message: res.data.msg,
-                            type: res.data.type
-                        });
-                        if (res.data.type === 'success'){
-                            that.onSubmit();
-                            that.openEditRoleDialog=false
-                        }
-                    })
-            },
-            handleOpenEditKeywordunBatch () {
-                let that = this;
-                this.$ajax.post('keywordcheck/check', {type:'uncheck',id:that.checkMany})
                     .then(function (res) {
                         that.$message({
                             message: res.data.msg,

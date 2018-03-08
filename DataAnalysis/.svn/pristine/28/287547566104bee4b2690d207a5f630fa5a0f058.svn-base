@@ -85,6 +85,8 @@ class KeywordCheck extends Base
         ];
     }
 
+
+
     public function editSave()
     {
         $req = Request::instance()->post();
@@ -188,29 +190,6 @@ class KeywordCheck extends Base
                 }
 //                Db::table("keywords_uncheck")->where("kw_id","=",$info)->delete();
             }
-        } catch (\Exception $e) {
-            return ['type'=>'error','msg'=>'数据库操作失败！'];
-        }
-        return ['type'=>'success','msg'=>'操作成功！'];
-    }
-
-    public function uncheckMany()
-    {
-        $req = Request::instance()->post();
-        if (!$req['id'])
-            return ['type'=>'error','msg'=>'请勾选要批量不通过的方框！'];
-        try{
-            $kw_id = Db::table('keywords_check')->where('id','in',$req['id'])->column('kw_id');
-            $arr = ['status'=>2,'user_id'=>Session::get('org_user_id'),'check_time'=>date('Y-m-d'),'memo'=>''];
-            Db::table('keywords_check')->where('id','in',$req['id'])->update($arr);
-            Utility::keywordsLog($kw_id,2,'批量审核不通过');
-
-            Log::alert($kw_id);
-
-//            Db::table("keywords")->where("kw_id",$checkinfo['kw_id'])->update(['is_show'=>"0","update_time"=>date("Y-m-d H:i:s")]);
-//            $arr = ['status'=>$req['check_type'],'user_id'=>Session::get('org_user_id'),'check_time'=>date('Y-m-d'),'memo'=>$req['memo']];
-//            Db::table('keywords_check')->where('id','=',$req['id'])->update($arr);
-//            Utility::keywordsLog($checkinfo['kw_id'],2,'审核：'.$req['memo']);
         } catch (\Exception $e) {
             return ['type'=>'error','msg'=>'数据库操作失败！'];
         }

@@ -1,0 +1,36 @@
+<?php
+namespace app\script\command;
+
+use think\console\Command;
+use think\console\Input;
+use think\console\Output;
+use app\index\model;
+
+class ArchiveCheck extends Command
+{
+    /**
+     * 面板
+     */
+    protected function configure()
+    {
+        $this->setName('baiduArchive')->setDescription('baidu archive submit/check');
+    }
+
+    /**
+     * 入口
+     * @param Input $input
+     * @param Output $output
+     */
+    protected function execute(Input $input, Output $output)
+    {
+        $time = time();
+        $this->output->writeln(date('Y-m-d H:i:s'));
+//        var_export(model\BaiduArchive::submitBdUrl());// 提交百度收录脚本
+        var_export(model\BaiduArchive::submitBd());// 检查百度收录脚本
+        $time = time()-$time;
+        $this->output->writeln("all steps end!".round($time/60).':'.round($time/60));
+    }
+
+
+
+}

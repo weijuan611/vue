@@ -201,7 +201,6 @@
                         <span v-show="props.row.score_pc == 0" class="check_red">毫无推广</span>
                     </template>
                 </el-table-column>
-
                 <el-table-column prop="score_m" sortable="custom" width="110px" label="M评价">
                     <template slot-scope="props">
                         <span v-show="props.row.score_m == 1" class="check_green">完美推广</span>
@@ -232,7 +231,7 @@
 
                 <el-table-column prop="user_name" label="添加人"></el-table-column>
                 <el-table-column prop="add_time" width="160px" label="添加时间"></el-table-column>
-                <el-table-column label="操作" header-align="center" fixed="right" width="400px">
+                <el-table-column label="操作" header-align="center" fixed="right" width="320px">
                     <template slot-scope="scope">
                         <!-- <el-button type="text" plain size="mini" icon="el-icon-view" @click="changeKeyWord(scope.row.keyword)">拓展</el-button> -->
                         <el-button type="text" plain size="mini" icon="el-icon-view"
@@ -246,11 +245,6 @@
                                    @click="refresh(scope.row.keyword)"
                                    :disabled="!buttonControl.lexiconrefresh || scope.row.update_time === '0000-00-00 00:00:00'">
                             刷新
-                        </el-button>
-                        <el-button type="text" plain size="mini" icon="el-icon-star-off"
-                                   @click="getschoollabel(scope.row.keyword)"
-                                   :disabled="!buttonControl.lexiconrefresh">
-                            学校标签
                         </el-button>
                         <el-button type="text" plain size="mini" icon="el-icon-delete"
                                    @click="onDelete(scope.row)">
@@ -326,15 +320,6 @@
             </div>
         </el-dialog>
         <!-- dialog标签配置结束 -->
-
-        <!-- dialog学校标签列表开始 -->
-        <el-dialog title="学校标签列表" width="500px" :visible.sync="openSchoolLabel" @close="cloaseSchoolLabel">
-           <el-tag type="warning" v-show="schooltagsData.length === 0"><i class="el-icon-warning">&nbsp;</i>此关键词暂无标签 </el-tag>
-           <template v-for="(item, index) in schooltagsData">
-               <el-tag style="margin: 0 10px 10px 0;" type="success">{{item.name}}</el-tag>
-           </template>
-        </el-dialog>
-        <!-- dialog学校标签列表结束 -->
 
         <!-- dialog导入结束 -->
         <el-dialog
@@ -800,7 +785,6 @@
                     tagName: ''
                 },
                 tagsData: [],
-                schooltagsData: [],
                 keywordOperateData: {
                     keyword: '',
                     class: '',
@@ -865,7 +849,6 @@
                     },
                 ],
                 openTagConfiguration: false,
-                openSchoolLabel: false,
                 openEditTagConfiguration: false,
                 openEditKeyword: false,
                 openFilterClass: false,
@@ -1095,9 +1078,6 @@
                     tagId: -1,
                     tagName: ''
                 }
-            },
-            cloaseSchoolLabel() {
-                this.openSchoolLabel = false
             },
             //标签配置预加载
             initTagsData(action) {
@@ -1764,21 +1744,6 @@
             },
             getTagsInfo() {
                 this.openTagConfiguration = true
-            },
-            getschoollabel(keyword) {
-                let that = this
-                that.loading_search = true;
-                this.$ajax.post('lexicon/keywords/schoollabel', {keyword: keyword})
-                    .then(function (res) {
-                        if (res.data !== undefined) {
-                            that.schooltagsData = res.data
-                            that.openSchoolLabel = true
-                        }
-                    })
-                    .catch(function (err) {
-                        that.$message('网络错误！请联系管理员')
-                        that.loading = false
-                    })
             },
             handleMoreTableCols() {
                 this.showMoreTableCols = !this.showMoreTableCols

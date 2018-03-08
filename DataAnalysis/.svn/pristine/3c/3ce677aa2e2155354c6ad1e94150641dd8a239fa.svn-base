@@ -324,8 +324,8 @@ class Mlexicon extends Base
             ->where('k.kw_id','<>',4)
             ->where('k.is_show','=',0);
         $post = Request::instance()->post();
-        if(!isset($post['paginate']['prop'])){
-            $query->order('k.add_time','desc');
+        if(!isset($post['prop'])){
+            $query->order('add_time','desc');
         }
         if(isset($search_data['keyword'])&&trim($search_data['keyword'])!=""){
             $query->where('k.keyword','like','%'.trim($search_data['keyword']).'%');
@@ -893,17 +893,5 @@ class Mlexicon extends Base
             }
         }
         return $data;
-    }
-
-    public function keywords_schoollabel()
-    {
-        $request = Request::instance()->post();
-        $keyword = !empty($request['keyword'])?$request['keyword']:"";
-        if ($keyword == "")
-            return ['type'=>false,"info"=>"未获取到关键词信息!"];
-        $result = Db::table("keywords")->alias('k')->field("ls.l_name as name")
-            ->join('keywords_label kl','k.kw_id=kl.kw_id','left')
-            ->join("labels_school ls","ls.s_id=kl.l_id")->where("k.keyword","=",$keyword)->select();
-        return $result;
     }
 }

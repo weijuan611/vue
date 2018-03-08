@@ -1,0 +1,85 @@
+<?php
+
+namespace app\index\model;
+
+use think\Db;
+use think\Exception;
+use think\Log;
+use think\Model;
+
+/**
+ * 百度收录 wdy
+ * Class BaiduArchive
+ * @package app\index\model
+ */
+class BaiduArchive extends Model{
+
+    /**
+     * 检查已提交的url是否已被百度收录
+     * @return array|bool
+     */
+    public static function submitBd()
+    {
+        // 获取最新百度收录cookie
+        $cookie_arr = Db::table('user_account')->where('alive', '=', 1)->column('cookie');
+        // 随机取一个
+        $rand_cookie = $cookie_arr[array_rand($cookie_arr,1)];
+        if(!$rand_cookie){
+            return ['type' => 'error', 'msg' => '提交收录失败，未发现有效的cookie'];
+        }
+        // 需要检查是否被百度收录的url
+        $data = Db::table('keywords_apply')->where('status', '=', 1)->column('ka_id,kd_id,url');
+        $kd_ids = [];
+        $kd_passed_ids = [];
+        if(!empty($data)){
+            foreach ($data as $k => $v){
+                // 先检查是否已被收录了,已收录的标为已收录
+                $is_archive = self::checkBaidu($v['url']);
+                if($is_archive){
+                    $kd_passed_ids[] = $v['kd_id'];
+                    Log::write($v['url'].'已经通过了');
+                    continue;
+                }
+                // 其它的需要提交一次
+                $kd_ids[] = $v['kd_id'];
+                // 提交百度收录
+                $url = 'https://ziyuan.baidu.com/linksubmit/urlsubmit';
+                $post_data = ['url'=>$v['url']];
+                $res = curl_request($url,$post_data,true,$rand_cookie);
+                $res_arr = json_decode($res,true);
+                if(!$res_arr){
+                    return ['type' => 'error', 'msg' => '提交收录失败，请及时更新cookie'];
+                }
+            }
+        }
+        //已被百度收录，更新keywords_apply和keywords_detail表的收录状态
+        if(!empty($kd_passed_ids)){
+            try {
+                Db::table('keywords_apply')->where('kd_id', 'IN', $kd_passed_ids)->update(['status' => 2]);
+                Db::table('keywords_detail')->where('id', 'IN', $kd_passed_ids)->update(['is_alive' => 1]);
+            } catch (Exception $e) {
+                return ['type' => 'error', 'msg' => $e->getLine() . '数据库操作失败!' . $e->getMessage().$e->getTraceAsString()];
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 检测网页是否被百度收录
+     * @param $url
+     * @return int
+     */
+    public static function checkBaidu($url){
+        $url='http://www.baidu.com/s?wd='.$url;
+        $curl=curl_init();
+        curl_setopt($curl,CURLOPT_URL,$url);
+        curl_setopt($curl,CURLOPT_RETURNTRANSFER,1);
+        $rs=curl_exec($curl);
+        curl_close($curl);
+        if(strpos($rs,'抱歉，没有找到')){
+            return 0;
+        }else{
+            return 1;
+        }
+    }
+}

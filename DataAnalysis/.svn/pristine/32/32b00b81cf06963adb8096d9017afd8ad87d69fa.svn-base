@@ -247,7 +247,7 @@
                                    :disabled="!buttonControl.lexiconrefresh || scope.row.update_time === '0000-00-00 00:00:00'">
                             刷新
                         </el-button>
-                        <el-button type="text" plain size="mini" icon="el-icon-star-off"
+                        <el-button type="text" plain size="mini" icon="el-icon-view"
                                    @click="getschoollabel(scope.row.keyword)"
                                    :disabled="!buttonControl.lexiconrefresh">
                             学校标签
@@ -329,9 +329,8 @@
 
         <!-- dialog学校标签列表开始 -->
         <el-dialog title="学校标签列表" width="500px" :visible.sync="openSchoolLabel" @close="cloaseSchoolLabel">
-           <el-tag type="warning" v-show="schooltagsData.length === 0"><i class="el-icon-warning">&nbsp;</i>此关键词暂无标签 </el-tag>
-           <template v-for="(item, index) in schooltagsData">
-               <el-tag style="margin: 0 10px 10px 0;" type="success">{{item.name}}</el-tag>
+           <template v-for="item in schooltagsData">
+               <el-tag>{{item.name}}</el-tag>
            </template>
         </el-dialog>
         <!-- dialog学校标签列表结束 -->
