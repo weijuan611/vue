@@ -89,7 +89,7 @@ class Spider extends Process
             $values = ['wd' => $keyword, 'pn' => $init_page * 10];
             $temp = $this->getPageRank($url, $values, $init_page, $type);
             if (!empty($temp)) {
-                $info = array_merge($info, $temp);
+                $info = array_merge($info,$temp);
             }
             if ($this->is_self > 0) {
                 $init_page = 10;
@@ -164,14 +164,15 @@ class Spider extends Process
                     if (strpos($v, 'houxue.com')) {
                         $rank = $page * 10 + ($k + 1);
                         $this->is_self = 1;
-                        array_push($result, ['rank_pc' => $rank, 'url_pc' => $v, 'op_id' => $op_id]);
+                        array_push($result,['rank_pc' => $rank, 'url_pc' => $v, 'op_id' => $op_id]);
                         break;
-                    } else {
+                    }
+                    else {
                         foreach ($op as $k1 => $v1) {
                             if (strpos($v, $v1['op_domain'])) {
                                 $rank = $page * 10 + ($k + 1);
                                 $op_id = $v1['op_id'];
-                                array_push($result, ['rank_pc' => $rank, 'url_pc' => $v, 'op_id' => $op_id]);
+                                array_push($result,['rank_pc' => $rank, 'url_pc' => $v, 'op_id' => $op_id]);
                             }
                         }
                     }
@@ -182,13 +183,11 @@ class Spider extends Process
                 $links = [];
                 foreach ($list as $k => $v) {
                     $t = $v->find('a');
-                    $domain_part_m = $t[0]->text();// todo 直接从链接文字里取域名
                     $link = $t[0]->getAttribute('href');
-                    // fix: 批量替换';'为'&'
-                    $link = str_replace(';', '&', $link);
+                    $domain_part_m = $t[0]->text();// todo 直接从链接文字里取域名
                     foreach ($op_domain as $k1 => $v1) {
                         if (strpos($domain_part_m, $v1)) {
-                            $real_link = $this->get_redir_m_url($link);// 真实网址
+                            $real_link = get_redirect_url($link);// 真实网址
                             $links[] = $real_link;
                         } else {
                             continue;
@@ -200,14 +199,15 @@ class Spider extends Process
                     if (strpos($v, 'houxue.com')) {
                         $rank = $page * 10 + ($k + 1);
                         $this->is_self = 1;
-                        array_push($result, ['rank_m' => $rank, 'url_m' => $v, 'op_id' => $op_id]);
+                        array_push($result,['rank_m' => $rank, 'url_m' => $v, 'op_id' => $op_id]);
                         break;
-                    } else {
+                    }
+                    else {
                         foreach ($op as $k1 => $v1) {
                             if (strpos($v, $v1['op_domain'])) {
                                 $rank = $page * 10 + ($k + 1);
                                 $op_id = $v1['op_id'];
-                                array_push($result, ['rank_m' => $rank, 'url_m' => $v, 'op_id' => $op_id]);
+                                array_push($result,['rank_m' => $rank, 'url_m' => $v, 'op_id' => $op_id]);
                             }
                         }
                     }
@@ -230,8 +230,8 @@ class Spider extends Process
         // ===step 0: 初始化，先检查是否有进行中的任务(status: 0:创建；1:运行中;2:完成;3:作废)
         $time_now = date('Y-m-d H:i:s', time());
         $no_date = '0000-00-00 00:00:00';
-        // 一次取5个待计算的关键词
-        $limit = 5;
+        // 一次取1个待计算的关键词
+        $limit = 1;
         try {
             $data = Db::table('keywords')->where('update_time', '=', $no_date)
                 ->where('status', '=', 0)
@@ -260,7 +260,7 @@ class Spider extends Process
         foreach ($keyword_arr as $k => $v) {
             $bd_rank = $mdl->getBaiduRank($v);//百度排名
             Log::write($bd_rank);
-//            $bd_index = [0 => 3, 1 => 4];
+//            $bd_index = [0=>3,1=>4];
             $bd_index = $mdl->getBaiduIndex($v);//百度指数
             Log::write($bd_index);
             $update_arr = [
@@ -673,24 +673,6 @@ class Spider extends Process
             }
         } else {
             return 2;
-        }
-    }
-
-    /**
-     * 获取百度m站跳转链接
-     * @param $url
-     * @return string
-     */
-    public function get_redir_m_url($url)
-    {
-//        $res = $this->snoopy->fetch($url)->results;// why returning empty?
-        $res = (new Snoopy)->fetch($url)->results;
-//        $result = preg_match_all("/(http|ftp|https):[\/]{2}[a-z]+[.]{1}[a-z\d\-]+[.]{1}[a-z\d]*[\/]*[A-Za-z\d]*[\/]*[A-Za-z\d]*/", $res, $matches);
-        $result = preg_match_all("/(http|ftp|https):\/\/([\w\d\-_]+[\.\w\d\-_]+)[:\d+]?([\/]?[\w\/\.\?=&;%@#\+,]+)/i", $res, $matches);
-        if ($result) {
-            return isset($matches[0][0]) ? $matches[0][0] : '';
-        } else {
-            return '';
         }
     }
 }

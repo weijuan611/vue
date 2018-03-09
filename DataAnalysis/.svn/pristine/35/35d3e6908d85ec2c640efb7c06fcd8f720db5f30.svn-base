@@ -329,25 +329,20 @@
                 if (action !== 'changeSort' && action !== 'changeCurrentPage') {
                     that.$refs.user_table.clearSort()
                 }
-                if (!this.loading) {
-                  console.log('loading')
-                  this.loading = true
-                  this.$ajax.post('/userinfo/index', {search: this.searchData, page: this.paginationData})
-                      .then(function (res) {
-                          if (res.data !== undefined) {
-                              that.tableData = res.data.tableData
-                              that.paginationData.total = res.data.total;
-                              that.dpOptions = res.data.dpOptions
-                              that.buttonControl = res.data.buttonControl;
-                              that.is_admin = res.data.is_admin;
-                          }
-                          that.loading = false
-                      })
-                      .catch(function (err) {
+                this.loading = true
+                this.$ajax.post('/userinfo/index', {search: this.searchData, page: this.paginationData})
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.tableData = res.data.tableData
+                            that.paginationData.total = res.data.total;
+                            that.dpOptions = res.data.dpOptions
+                            that.buttonControl = res.data.buttonControl;
+                            that.is_admin = res.data.is_admin;
+                        }
                         that.loading = false
-                      })
-                }
-
+                    })
+                    .catch(function (err) {
+                    })
             },
             onClear() {
                 this.initSearchData()

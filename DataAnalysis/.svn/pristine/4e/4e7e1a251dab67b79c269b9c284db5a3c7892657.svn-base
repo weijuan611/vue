@@ -19,7 +19,6 @@ return [
     'app\script\command\OrderHandle',
     'app\script\command\ExportCheck',
     'app\script\command\ArchiveCheck',
-    'app\script\command\ArticleSpider',
 
     /*** test ************************/
     'app\script\test\Test',

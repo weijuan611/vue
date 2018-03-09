@@ -683,12 +683,10 @@ class Spider extends Process
      */
     public function get_redir_m_url($url)
     {
-//        $res = $this->snoopy->fetch($url)->results;// why returning empty?
-        $res = (new Snoopy)->fetch($url)->results;
-//        $result = preg_match_all("/(http|ftp|https):[\/]{2}[a-z]+[.]{1}[a-z\d\-]+[.]{1}[a-z\d]*[\/]*[A-Za-z\d]*[\/]*[A-Za-z\d]*/", $res, $matches);
-        $result = preg_match_all("/(http|ftp|https):\/\/([\w\d\-_]+[\.\w\d\-_]+)[:\d+]?([\/]?[\w\/\.\?=&;%@#\+,]+)/i", $res, $matches);
+        $res = $this->snoopy->fetch($url)->results;
+        $result = preg_match_all("/(http|https):[\/]{2}[a-z]+[.]{1}[a-z\d\-]+[.]{1}[a-z\d]*[\/]*[A-Za-z\d]*[\/]*[A-Za-z\d]*/", $res, $matches);
         if ($result) {
-            return isset($matches[0][0]) ? $matches[0][0] : '';
+            return isset($matches[0]) ? $matches[0] : '';
         } else {
             return '';
         }

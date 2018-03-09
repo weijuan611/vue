@@ -63,9 +63,7 @@ abstract class Process
         for($i = 0; $i < $this->PROCESS_NUM; $i++)
         {
             $process = new \swoole_process([$this,'consume'], false, false);
-            if($this->QUEUE_KEY !=0){
-                $t=$process->useQueue($this->QUEUE_KEY);
-            }
+            $t=$process->useQueue($this->QUEUE_KEY);
             $pid = $process->start();
             echo "Master: new consume, PID=".$pid.",$t\n";
         }
