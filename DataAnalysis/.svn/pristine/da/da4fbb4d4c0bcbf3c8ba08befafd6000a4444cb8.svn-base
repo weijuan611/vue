@@ -1,0 +1,66 @@
+<?php
+/**
+ * 今日任务生成:
+ * 将昨日已发布、已取消的任务导入今日任务中。
+ * Created by PhpStorm.
+ * User: wdy
+ * Date: 2018/3/14
+ * Time: 08:50
+ */
+
+namespace app\script\model;
+
+use think\Db;
+use think\exception\DbException;
+
+class TaskGenerator
+{
+    public function gen()
+    {
+        // 生成昨天的任务
+        try {
+            $yesterday = date("Y-m-d 00:00:00", strtotime("-1 day"));
+            $today = date("Y-m-d 00:00:00", strtotime("0 day"));
+            $now = date("Y-m-d H:i:s", time());
+            // 昨天已发布的任务
+            $tasks_published = Db::table('task')
+                ->where('task_time', 'between', [$yesterday, $today])
+                ->where('status', '=', '2')->select();
+            // 昨天已取消的任务
+            $tasks_canceled = Db::table('task')
+                ->where('task_time', 'between', [$yesterday, $today])
+                ->where('status', '=', '0')->select();
+            if (!empty($tasks_published)) {
+                foreach ($tasks_published as $k => $v) {
+                    $tasks_published[$k]['status'] = 1;
+                    $tasks_published[$k]['task_time'] = $now;
+                    unset($tasks_published[$k]['t_id']);
+                    $kw_ids = [];
+                    if (!empty($v['kw_id'])) {
+                        $kw_ids = explode(',', $v['kw_id']);
+                    }
+                    $tasks_published[$k]['keyword_num'] = count($kw_ids);
+                }
+            }
+            if (!empty($tasks_canceled)) {
+                foreach ($tasks_canceled as $k => $v) {
+                    $tasks_canceled[$k]['task_time'] = $now;
+                    unset($tasks_canceled[$k]['t_id']);
+                    $kw_ids = [];
+                    if (!empty($v['kw_id'])) {
+                        $kw_ids = explode(',', $v['kw_id']);
+                    }
+                    $tasks_canceled[$k]['keyword_num'] = count($kw_ids);
+                }
+            }
+            $task_gen = array_merge($tasks_published, $tasks_canceled);
+            // 处理后插入task
+            if (!empty($task_gen)) {
+                foreach ($task_gen as $k => $v) {
+                    Db::table('task')->insert($v);
+                }
+            }
+        } catch (DbException $e) {
+        }
+    }
+}

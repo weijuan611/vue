@@ -1,0 +1,98 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2018/3/10
+ * Time: 13:59
+ */
+
+namespace app\index\controller\material;
+
+
+use app\index\controller\Base;
+use app\index\model\TaskDetails;
+use think\Log;
+
+class TaskDetail extends Base
+{
+    public function getList(){
+        $model = new TaskDetails();
+        $result = $model->getList();
+        $complete_num = 0;
+        $article_num = 0;
+        if(!empty($result['data'])){
+            foreach ($result['data'] as $value){
+                $complete_num+=$value['complete_num'];
+                $article_num+=$value['article_num'];
+            }
+        }
+        return json(['data'=>$result['data'],'total'=>$result['total'],'complete_num'=>$complete_num,
+            'article_num'=>$article_num,'buttonControl'=>[]]);
+    }
+
+    public function getInputInfo(){
+        $kw_id = $this->request->get('kw_id');
+        $model = new TaskDetails();
+        $result = $model->getInputInfo($kw_id);
+        if(!empty($result)){
+            return json($result);
+        }else{
+            return json('未找到相关信息',1);
+        }
+    }
+
+    public function postInputSave(){
+        $post = $this->request->post();
+        $model = new TaskDetails();
+        if($model->inputSave($post)){
+            return json('保持成功');
+        }else{
+            return json($model->getMessage(),1);
+        }
+    }
+
+    public function postInputSaveRelease(){
+        $post = $this->request->post();
+        $model = new TaskDetails();
+        if($model->inputSave($post)){
+            $ka_id=$model->articleSave($post);
+            if($ka_id){
+                $model->articleRelease($ka_id);
+                return json('发布成功');
+            }
+        }
+        return json($model->getMessage(),1);
+    }
+
+    public function updateCoverImg(){
+        // 获取表单上传文件 例如上传了001.jpg
+        $file = request()->file('cover_img');
+        Log::write($file);
+        // 移动到框架应用根目录/public/uploads/ 目录下
+        if($file){
+            $info = $file->validate(['size'=>15678,'ext'=>'jpg,png,gif'])->move(ROOT_PATH . 'public' . DS . 'uploads');
+            if($info){
+                return json('uploads'.DS.$info->getSaveName());
+            }else{
+                // 上传失败获取错误信息
+                return json($file->getError(),1);
+            }
+        }
+    }
+
+    public function updateContentImg(){
+        // 获取表单上传文件 例如上传了001.jpg
+        $file = request()->file('img');
+        Log::write($file);
+        // 移动到框架应用根目录/public/uploads/ 目录下
+        if($file){
+            $info = $file->validate(['size'=>15678,'ext'=>'jpg,png,gif'])->move(ROOT_PATH . 'public' . DS . 'uploads');
+            if($info){
+                return json( 'uploads'.DS.$info->getSaveName());
+            }else{
+                // 上传失败获取错误信息
+                return json($file->getError(),1);
+            }
+        }
+    }
+}

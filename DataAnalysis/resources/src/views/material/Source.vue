@@ -1,0 +1,379 @@
+<template>
+    <page-wrap>
+        <!-- 搜索栏 -->
+        <search-wrap>
+            <el-form ref="form" :model="searchData" label-width="100px" size="mini">
+                <el-row :gutter="22">
+                    <el-col :span="5">
+                        <div class="bg">
+                            <el-form-item label="素材站名称：">
+                                <el-input v-model="searchData.title" placeholder="请输入内容"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="6">
+                        <div class="bg">
+                            <el-form-item label="素材站url：">
+                                <el-input v-model="searchData.url" placeholder="请输入内容"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="添加时间：">
+                                <el-date-picker
+                                        v-model="searchData.add_time"
+                                        type="daterange"
+                                        value-format="yyyy-MM-dd"
+                                        range-separator="至"
+                                        start-placeholder="开始日期"
+                                        end-placeholder="结束日期">
+                                </el-date-picker>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="5">
+                        <el-form-item label-width="0">
+                            <el-button type="primary" @click="onSubmit">查询</el-button>
+                            <el-button type="danger" @click="onClear">清空</el-button>
+                            <el-button type="success" @click="onAdd" :disabled="!buttonControl.material_sourcelistmaterial_add">添加</el-button>
+                        </el-form-item>
+                    </el-col>
+                  </el-row>
+            </el-form>
+        </search-wrap>
+
+
+
+        <!-- 表格 -->
+        <table-wrap>
+            <el-table
+                    ref="materialsourcetable"
+                    v-loading="loading"
+                    :data="tableData"
+                    size="mini"
+                    @sort-change="tableSortChange"
+                    :height="tabTableHeight">
+                <el-table-column
+                        label="素材站名称"
+                        width="180px"
+                        sortable
+                        prop="title">
+                </el-table-column>
+                <el-table-column
+                        label="素材站url"
+                        prop="url">
+                </el-table-column>
+                <el-table-column
+                        label="素材站描述"
+                        prop="des">
+                </el-table-column>
+                <el-table-column
+                        label="添加人"
+                        width="100px"
+                        prop="user_name">
+                </el-table-column>
+                <el-table-column
+                        label="级别"
+                        prop="level" width="90px">
+                    <template slot-scope="props">
+                        <span v-show="props.row.level == 0" class="check_red">第一级</span>
+                        <span v-show="props.row.level == 1" class="check_red">第二级</span>
+                        <span v-show="props.row.level == 2" class="check_red">第三级</span>
+                        <span v-show="props.row.level == 3" class="check_red">第四级</span>
+                        <span v-show="props.row.level == 4" class="check_red">第五级</span>
+                        <span v-show="props.row.level == 5" class="check_red">第六级</span>
+                        <span v-show="props.row.level == 6" class="check_red">第七级</span>
+                        <span v-show="props.row.level == 7" class="check_red">第八级</span>
+                        <span v-show="props.row.level == 8" class="check_red">第九级</span>
+                        <span v-show="props.row.level == 9" class="check_red">第十级</span>
+                    </template>
+                </el-table-column>
+                <el-table-column
+                        label="添加时间"
+                        width="140px"
+                        prop="add_time">
+                </el-table-column>
+
+                <el-table-column label="操作" header-align="center" width="160px">
+                    <template slot-scope="scope">
+                        <el-button type="text" plain size="mini" icon="el-icon-edit"
+                                   @click="onEdit(scope.row,'edit')" :disabled="!buttonControl.material_sourcelistmaterial_edit">编辑
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-delete"
+                                   @click="onDelete(scope.row)" :disabled="!buttonControl.material_sourcelistmaterial_delete">删除</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+
+
+        <!-- 分页 -->
+        <pagination-wrap>
+            <new-pagination
+                    :total="paginationData.total"
+                    :propCurrentPage="paginationData.currentPage"
+                    @initPaginationData="showPaginationData"
+                    @handleSizeChange="showSizeChange"
+                    @handleCurrentChange="showCurrentChange"
+            />
+        </pagination-wrap>
+
+        <!-- dialog添加编辑素材来源开始 -->
+        <el-dialog
+                width="400px"
+                title="添加/编辑"
+                @close="handleMeaterialCancel"
+                :visible.sync="openEditmaterial">
+
+            <el-form ref="keywordOperateData" :model="materialOperateData" :rules="materialOperateRule" size="small"
+                     label-width="120px">
+                <el-form-item prop="title" label="站点名称：" required>
+                    <el-input v-model="materialOperateData.title"></el-input>
+                </el-form-item>
+                <el-form-item prop="url" label="站点URL：" required>
+                    <el-input v-model="materialOperateData.url"></el-input>
+                </el-form-item>
+                <el-form-item prop="des" label="站点DES：">
+                    <el-input v-model="materialOperateData.des"></el-input>
+                </el-form-item>
+                <el-form-item label="站点级别：" required>
+                    <el-select v-model="level_model" placeholder="请选择" value="">
+                        <el-option
+                                v-for="item in level_arr"
+                                :key="item.value"
+                                :label="item.label"
+                                :value="item.value">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+            </el-form>
+
+            <div slot="footer">
+                <el-button size="mini" @click="handleMeaterialCancel">取 消</el-button>
+                <el-button size="mini" type="primary" @click="handleMeaterialConfirm">确 定</el-button>
+            </div>
+        </el-dialog>
+        <!-- dialog添加编辑素材来源结束 -->
+
+    </page-wrap>
+</template>
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import paginationWrap from './../../components/pageStructure/paginationWrap.vue'
+    import NewPagination from './../../components/base/NewPagination.vue'
+    import {mapState} from 'vuex'
+    import { getDates }  from './../../assets/js/baseFunc/baseSelfFunc'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, TableWrap, paginationWrap, NewPagination
+        },
+        data() {
+            return {
+                buttonControl:{},
+                searchData: {
+                    title: '',
+                    url:'',
+                    add_time:[],
+                },
+                tableData: [],
+                level_model: "",
+                loading: false,
+                openEditmaterial: false,
+                paginationData: {},
+                materialOperateRule: {
+                    title: [
+                        {required: true, message: '请输入素材站站点名称', trigger: 'blur'}
+                    ],
+                    url: [
+                        {required: true, message: '请输入素材站站点URL', trigger: 'blur'}
+                    ]
+                },
+                level_arr: [//添加或编辑界面中素材站对应级别
+                    {value: 0, label: '级别一'},
+                    {value: 1, label: '级别二'},
+                    {value: 2, label: '级别三'},
+                    {value: 3, label: '级别四'},
+                    {value: 4, label: '级别五'},
+                    {value: 5, label: '级别六'},
+                    {value: 6, label: '级别七'},
+                    {value: 7, label: '级别八'},
+                    {value: 8, label: '级别九'},
+                    {value: 9, label: '级别十'},
+                ],
+                materialOperateData:{
+                    id: -1,
+                    title: '',
+                    url: '',
+                    des: '',
+                    level: '',
+                    type:''
+                }
+            }
+        },
+        computed: {
+            ...mapState('navTabs', [
+                'tabTableHeight'
+            ])
+        },
+        mounted() {
+            this.initSearchData()
+            this.onSubmit()
+        },
+        methods: {
+            initSearchData() {
+                this.searchData = {
+                    title: '',
+                    url:'',
+                    add_time:[],
+                }
+                this.level_model = ""
+            },
+            onClear() {
+                this.initSearchData()
+            },
+            onSubmit(action = '') {
+                let that = this
+                if (action !== 'changeCurrentPage') {
+                    that.paginationData.currentPage = 1
+                }
+                if (action !== 'changeSort' && action !== 'changeCurrentPage') {
+                    that.paginationData.prop = 'add_time'
+                    that.paginationData.order = "descending"
+                }
+                if (!that.loading) {
+                    this.$ajax.post('/material_sourcelist/init', {
+                        search: that.searchData,
+                        paginate: that.paginationData
+                    })
+                        .then(function (res) {
+                            if (res.data !== undefined) {
+                                that.tableData = res.data.data
+                                that.paginationData.total = res.data.total
+                                that.loading = false
+                                that.buttonControl = res.data.buttonControl
+                            }
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                }
+            },
+            tableSortChange(val) {
+                this.paginationData.prop = val.prop
+                this.paginationData.order = val.order
+                this.onSubmit('changeSort')
+            },
+            showPaginationData(data) {
+                this.paginationData.pageSizes = data.pageSizes
+                this.paginationData.pageSize = data.pageSize
+                this.paginationData.currentPage = data.currentPage
+            },
+            showSizeChange(val) {
+                this.paginationData.pageSize = val
+                this.onSubmit()
+            },
+            showCurrentChange(val) {
+                this.paginationData.currentPage = val
+                this.onSubmit('changeCurrentPage')
+            },
+            onDelete(row) {
+                let that = this
+                this.$confirm('此操作将永久删除该条记录, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.$ajax.post('/material_sourcelist/material_delete', {id: row.wm_id})
+                        .then(function (res) {
+                            if (res.data.type) {
+                                that.openEditmaterial = false
+                                that.onSubmit()
+                                that.$message({
+                                    type: 'success',
+                                    message: res.data.info
+                                })
+                            } else {
+                                that.$message({type: 'error', message: res.data.info})
+                            }
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                }).catch(() => {
+                    this.$message({
+                        type: 'info',
+                        message: '已取消删除'
+                    });
+                });
+            },
+            onEdit(scope) {
+                this.materialOperateData.id = scope.wm_id
+                this.materialOperateData.type = 'edit'
+                this.materialOperateData.title = scope.title
+                this.materialOperateData.url = scope.url
+                this.materialOperateData.des = scope.des
+                this.level_model = String(scope.level)
+                this.openEditmaterial = true
+            },
+            onAdd(){
+                this.materialOperateData.type = 'add'
+                this.openEditmaterial = true
+            },
+            handleMeaterialCancel() {
+                this.materialOperateData={
+                    id: -1,
+                    title: '',
+                    url: '',
+                    des: '',
+                    level: '',
+                    type:''
+                }
+                this.openEditmaterial = false
+            },
+            handleMeaterialConfirm() {
+                let obj = {}
+                obj = {
+                    action: this.materialOperateData.type,
+                    id: this.materialOperateData.id,
+                    title: this.materialOperateData.title,
+                    url: this.materialOperateData.url,
+                    des: this.materialOperateData.des,
+                    level: this.level_model
+                }
+                let that = this
+                this.$ajax.post('/material_sourcelist/material_' + obj.action, {
+                    id: obj.id,
+                    title: obj.title,
+                    url: obj.url,
+                    des: obj.des,
+                    level: obj.level
+                })
+                    .then(function (res) {
+                        if (res.data.type) {
+                            that.openEditmaterial = false
+                            that.handleMeaterialCancel()
+                            that.onSubmit()
+                            that.$message({
+                                type: 'success',
+                                message: res.data.info
+                            })
+                        } else {
+                            that.$message({type: 'error', message: res.data.info})
+                        }
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+                this.openEditmaterial = false
+            },
+        }
+    }
+</script>

@@ -1,0 +1,827 @@
+<?php
+/**
+ * 工具类
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2017/12/15
+ * Time: 15:50
+ */
+
+namespace app\common;
+
+
+use app\index\controller\Zlog;
+use think\Db;
+use think\Exception;
+use think\Log;
+
+class Utility
+{
+    /**
+     * 获取客户端IP
+     *
+     * @access      public
+     *
+     * @return string
+     **/
+    public static function GetIP()
+    {
+        if (!empty($_SERVER["HTTP_CLIENT_IP"])) $cip = $_SERVER["HTTP_CLIENT_IP"];
+        else if (!empty($_SERVER["HTTP_X_FORWARDED_FOR"])) $cip = $_SERVER["HTTP_X_FORWARDED_FOR"];
+        else if (!empty($_SERVER["REMOTE_ADDR"])) $cip = $_SERVER["REMOTE_ADDR"];
+        else $cip = '0.0.0.0';
+        return $cip;
+    }
+
+    public static function GetArea($user_ip)
+    {
+        $info = self::convertip_full_xx($user_ip, DOCROOT . 'application/common/qqwry.dat');
+        try {
+            $area = iconv(mb_detect_encoding($info
+                , array("ASCII", 'UTF-8', "GB2312", "GBK", 'BIG5')), 'utf-8//IGNORE', $info);
+        } catch (\Exception $e) {
+            Log::error($e->getTraceAsString());
+            $area = '';
+        }
+//        $area = iconv('GB2312', 'UTF-8', $info);
+        return $area;
+    }
+
+    public static function convertip_full_xx($ip, $ipdatafile)
+    {
+
+        if (!$fd = @fopen($ipdatafile, 'rb')) {
+            return 'Invalid IP data file';
+        }
+
+        $ip = explode('.', $ip);
+        $ipNum = $ip[0] * 16777216 + $ip[1] * 65536 + $ip[2] * 256 + $ip[3];
+
+        if (!($DataBegin = fread($fd, 4)) || !($DataEnd = fread($fd, 4))) return '';
+        @$ipbegin = implode('', unpack('L', $DataBegin));
+        if ($ipbegin < 0) $ipbegin += pow(2, 32);
+        @$ipend = implode('', unpack('L', $DataEnd));
+        if ($ipend < 0) $ipend += pow(2, 32);
+        $ipAllNum = ($ipend - $ipbegin) / 7 + 1;
+
+        $BeginNum = $ip2num = $ip1num = 0;
+        $ipAddr1 = $ipAddr2 = '';
+        $EndNum = $ipAllNum;
+
+        while ($ip1num > $ipNum || $ip2num < $ipNum) {
+            $Middle = intval(($EndNum + $BeginNum) / 2);
+
+            fseek($fd, $ipbegin + 7 * $Middle);
+            $ipData1 = fread($fd, 4);
+            if (strlen($ipData1) < 4) {
+                fclose($fd);
+                return '- System Error';
+            }
+            $ip1num = implode('', unpack('L', $ipData1));
+            if ($ip1num < 0) $ip1num += pow(2, 32);
+
+            if ($ip1num > $ipNum) {
+                $EndNum = $Middle;
+                continue;
+            }
+
+            $DataSeek = fread($fd, 3);
+            if (strlen($DataSeek) < 3) {
+                fclose($fd);
+                return '- System Error';
+            }
+            $DataSeek = implode('', unpack('L', $DataSeek . chr(0)));
+            fseek($fd, $DataSeek);
+            $ipData2 = fread($fd, 4);
+            if (strlen($ipData2) < 4) {
+                fclose($fd);
+                return '- System Error';
+            }
+            $ip2num = implode('', unpack('L', $ipData2));
+            if ($ip2num < 0) $ip2num += pow(2, 32);
+
+            if ($ip2num < $ipNum) {
+                if ($Middle == $BeginNum) {
+                    fclose($fd);
+                    return '- Unknown';
+                }
+                $BeginNum = $Middle;
+            }
+        }
+
+        $ipFlag = fread($fd, 1);
+        if ($ipFlag == chr(1)) {
+            $ipSeek = fread($fd, 3);
+            if (strlen($ipSeek) < 3) {
+                fclose($fd);
+                return '- System Error';
+            }
+            $ipSeek = implode('', unpack('L', $ipSeek . chr(0)));
+            fseek($fd, $ipSeek);
+            $ipFlag = fread($fd, 1);
+        }
+
+        if ($ipFlag == chr(2)) {
+            $AddrSeek = fread($fd, 3);
+            if (strlen($AddrSeek) < 3) {
+                fclose($fd);
+                return '- System Error';
+            }
+            $ipFlag = fread($fd, 1);
+            if ($ipFlag == chr(2)) {
+                $AddrSeek2 = fread($fd, 3);
+                if (strlen($AddrSeek2) < 3) {
+                    fclose($fd);
+                    return '- System Error';
+                }
+                $AddrSeek2 = implode('', unpack('L', $AddrSeek2 . chr(0)));
+                fseek($fd, $AddrSeek2);
+            } else {
+                fseek($fd, -1, SEEK_CUR);
+            }
+
+            while (($char = fread($fd, 1)) != chr(0))
+                $ipAddr2 .= $char;
+
+            $AddrSeek = implode('', unpack('L', $AddrSeek . chr(0)));
+            fseek($fd, $AddrSeek);
+
+            while (($char = fread($fd, 1)) != chr(0))
+                $ipAddr1 .= $char;
+        } else {
+            fseek($fd, -1, SEEK_CUR);
+            while (($char = fread($fd, 1)) != chr(0))
+                $ipAddr1 .= $char;
+
+            $ipFlag = fread($fd, 1);
+            if ($ipFlag == chr(2)) {
+                $AddrSeek2 = fread($fd, 3);
+                if (strlen($AddrSeek2) < 3) {
+                    fclose($fd);
+                    return '- System Error';
+                }
+                $AddrSeek2 = implode('', unpack('L', $AddrSeek2 . chr(0)));
+                fseek($fd, $AddrSeek2);
+            } else {
+                fseek($fd, -1, SEEK_CUR);
+            }
+            while (($char = fread($fd, 1)) != chr(0))
+                $ipAddr2 .= $char;
+        }
+        fclose($fd);
+
+        if (preg_match('/http/i', $ipAddr2)) {
+            $ipAddr2 = '';
+        }
+        $ipaddr = "$ipAddr1 $ipAddr2";
+        $ipaddr = preg_replace('/CZ88\.NET/is', '', $ipaddr);
+        $ipaddr = preg_replace('/^\s*/is', '', $ipaddr);
+        $ipaddr = preg_replace('/\s*$/is', '', $ipaddr);
+        if (preg_match('/http/i', $ipaddr) || $ipaddr == '') {
+            $ipaddr = '- Unknown';
+        }
+
+        return $ipaddr;
+    }
+
+    /**
+     * 获得浏览器名称和版本
+     *
+     * @access  public
+     * @return  string
+     */
+    public static function get_user_browser()
+    {
+        if (empty($_SERVER['HTTP_USER_AGENT'])) {
+            return '未知浏览器';
+        }
+
+        $agent = $_SERVER['HTTP_USER_AGENT'];
+        $browser = '';
+        $browser_ver = '';
+        //if (preg_match('QIHU 360SE', $agent, $regs)) {
+        if (stripos($agent, 'QIHU 360SE') > 0) {
+            $browser = '360安全浏览器';
+            //$browser_ver = $regs[1];
+        } //elseif (preg_match('QIHU 360EE', $agent, $regs)) {
+        elseif (stripos($agent, 'QIHU 360EE') > 0) {
+            $browser = '360极速浏览器';
+            //$browser_ver = $regs[1];
+        } //elseif (preg_match('/MSIE\s([^\s|;]+)/i', $agent, $regs) && (preg_match('/TencentTraveler\/([^\s]+)/i', $agent, $regs2) || (preg_match('/QQBrowser\/([^\s]+)/i', $agent, $regs2)))) {
+        elseif (stripos($agent, 'TencentTraveler') > 0 || stripos($agent, 'QQBrowser') > 0) {
+            $browser = 'QQ浏览器' . $browser_ver;
+            //$browser_ver = $regs2[1];
+        } elseif (stripos($agent, 'TaoBrowser') > 0) {
+            $browser = '淘宝浏览器' . $browser_ver;
+            //$browser_ver = $regs2[1];
+        } elseif (stripos($agent, 'SE') > 0 && (stripos($agent, 'MetaSr') > 0)) {
+            //elseif (preg_match('/SE\/([^\s]+)/i', $agent, $regs) && preg_match('/MetaSr/', $agent, $regs2)) {
+            $browser = '搜狗浏览器';
+            //$browser_ver = $regs[1];
+        } elseif (preg_match('/MSIE\s([^\s|;]+)/i', $agent, $regs)) {
+            $browser = 'IE' . $browser_ver;
+            $browser_ver = $regs[1];
+        } elseif (preg_match('/FireFox\/([^\s]+)/i', $agent, $regs)) {
+            $browser = '火狐浏览器' . $browser_ver;
+            $browser_ver = $regs[1];
+        } //elseif (preg_match('/Chrome\/([^\s]+)/i', $agent, $regs) && preg_match('/LBBROWSER\/', $agent, $regs2)) {
+        elseif (preg_match('/Chrome\/([^\s]+)/i', $agent, $regs) && stripos($agent, 'LBBROWSER') > 0) {
+            $browser = '猎豹浏览器' . $browser_ver;
+            $browser_ver = $regs[1];
+        } elseif (preg_match('/Chrome\/([^\s]+)/i', $agent, $regs)) {
+            $browser = '谷歌浏览器' . $browser_ver;
+            $browser_ver = $regs[1];
+        } elseif (preg_match('/Maxthon/i', $agent, $regs)) {
+            $browser = '(IE ' . $browser_ver . ') 傲游浏览器';
+            $browser_ver = '';
+        } elseif (preg_match('/Opera[\s|\/]([^\s]+)/i', $agent, $regs)) {
+            $browser = 'Opera' . $browser_ver;
+            $browser_ver = $regs[1];
+        } elseif (preg_match('/OmniWeb\/(v*)([^\s|;]+)/i', $agent, $regs)) {
+            $browser = 'OmniWeb';
+            $browser_ver = $regs[2];
+        } elseif (preg_match('/Netscape([\d]*)\/([^\s]+)/i', $agent, $regs)) {
+            $browser = '网景浏览器' . $browser_ver;
+            $browser_ver = $regs[2];
+        } elseif (preg_match('/safari\/([^\s]+)/i', $agent, $regs)) {
+            $browser = 'Safari' . $browser_ver;
+            $browser_ver = $regs[1];
+        } elseif (preg_match('/NetCaptor\s([^\s|;]+)/i', $agent, $regs)) {
+            $browser = '(IE ' . $browser_ver . ') NetCaptor';
+            $browser_ver = $regs[1];
+        } elseif (preg_match('/Lynx\/([^\s]+)/i', $agent, $regs)) {
+            $browser = 'Lynx' . $browser_ver;
+            $browser_ver = $regs[1];
+        }
+
+        if (!empty($browser)) {
+            return $browser . ' ' . $browser_ver;
+        } else {
+            return '未知浏览器';
+        }
+    }
+
+    /**
+     * 获得客户端的操作系统
+     *
+     * @access  private
+     * @return  string
+     */
+    public static function get_user_os($user_agent = '')
+    {
+        if ($user_agent != '') {
+            $agent = strtolower($user_agent);
+        } elseif (empty($_SERVER['HTTP_USER_AGENT'])) {
+            return 'Unknown';
+        } else {
+            $agent = strtolower($_SERVER['HTTP_USER_AGENT']);
+        }
+        $os = '';
+
+        if (strpos($agent, 'android') != false) {
+            $os = 'Android';
+        } elseif (strpos($agent, 'iphone') !== false) {
+            $os = 'iPhone';
+        } elseif (strpos($agent, 'win') !== false) {
+            if (strpos($agent, 'nt 5.1') !== false) {
+                $os = 'Windows XP';
+            } elseif (strpos($agent, 'nt 5.2') !== false) {
+                $os = 'Windows 2003';
+            } elseif (strpos($agent, 'nt 6.1') !== false) {
+                $os = 'Windows 7';
+            } elseif (strpos($agent, 'nt 6.2') !== false) {
+                $os = 'Windows 8';
+            } elseif (strpos($agent, 'nt 10.0') !== false) {
+                $os = 'Windows 10';
+            } elseif (strpos($agent, 'nt 5.0') !== false) {
+                $os = 'Windows 2000';
+            } elseif (strpos($agent, 'nt 6.0') !== false) {
+                $os = 'Windows Vista';
+            } elseif (strpos($agent, 'nt') !== false) {
+                $os = 'Windows NT';
+            } elseif (strpos($agent, 'win 9x') !== false && strpos($agent, '4.90') !== false) {
+                $os = 'Windows ME';
+            }
+        } elseif (strpos($agent, 'linux') !== false) {
+            $os = 'Linux';
+        } elseif (strpos($agent, 'unix') !== false) {
+            $os = 'Unix';
+        } elseif (strpos($agent, 'sun') !== false && strpos($agent, 'os') !== false) {
+            $os = 'SunOS';
+        } elseif (strpos($agent, 'ibm') !== false && strpos($agent, 'os') !== false) {
+            $os = 'IBM OS/2';
+        } elseif (strpos($agent, 'mac') !== false && strpos($agent, 'pc') !== false) {
+            $os = 'Macintosh';
+        } elseif (strpos($agent, 'powerpc') !== false) {
+            $os = 'PowerPC';
+        } elseif (strpos($agent, 'aix') !== false) {
+            $os = 'AIX';
+        } elseif (strpos($agent, 'hpux') !== false) {
+            $os = 'HPUX';
+        } elseif (strpos($agent, 'netbsd') !== false) {
+            $os = 'NetBSD';
+        } elseif (strpos($agent, 'bsd') !== false) {
+            $os = 'BSD';
+        } elseif (strpos($agent, 'osf1') !== false) {
+            $os = 'OSF1';
+        } elseif (strpos($agent, 'irix') !== false) {
+            $os = 'IRIX';
+        } elseif (strpos($agent, 'freebsd') !== false) {
+            $os = 'FreeBSD';
+        } elseif (strpos($agent, 'teleport') !== false) {
+            $os = 'teleport';
+        } elseif (strpos($agent, 'flashget') !== false) {
+            $os = 'flashget';
+        } elseif (strpos($agent, 'webzip') !== false) {
+            $os = 'webzip';
+        } elseif (strpos($agent, 'offline') !== false) {
+            $os = 'offline';
+        } else {
+            $os = 'Unknown';
+        }
+
+        return $os;
+    }
+
+    /**
+     * 日志表格名前缀
+     * @param $month
+     * @return mixed|string
+     */
+    public static function getLogSuffix($month, $is_select = true)
+    {
+        $sql_url_log = "
+  CREATE TABLE `url_statis_log%s` (
+  `log_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `log_time` datetime DEFAULT NULL COMMENT '访问时间',
+  `ip_address` varchar(20) NOT NULL DEFAULT '0.0.0.0' COMMENT 'IP地址',
+  `url_from` varchar(255) NOT NULL DEFAULT '' COMMENT '访问页面（来源页面）',
+  `domain_name` varchar(255) NOT NULL DEFAULT '' COMMENT '访问域名',
+  `session_id` varchar(64) NOT NULL DEFAULT '' COMMENT 'SessionID',
+  `long_time` int(11) NOT NULL DEFAULT '0' COMMENT '访问时长',
+  `cookie` varchar(64) NOT NULL DEFAULT '' COMMENT 'Cookie',
+  `web_from` varchar(255) NOT NULL DEFAULT '' COMMENT '来源网站(访问的页面)',
+  `domain_from` varchar(255) NOT NULL DEFAULT '' COMMENT '来源域名',
+  `keyworks` varchar(255) NOT NULL DEFAULT '' COMMENT '搜索关键字',
+  `user_agent` varchar(255) NOT NULL DEFAULT '' COMMENT '用户代理',
+  `browser_type` tinyint(3) NOT NULL DEFAULT '0' COMMENT '访问浏览器:1:Chrome,2:Safari,3:Edge,4:Firefox,5:其他，6：IE 6,7:IE 7,8：IE8,9:IE9,10:IE10,11:IE11',
+  `search_engines` tinyint(1) NOT NULL DEFAULT '0' COMMENT '搜索引擎：0:其他1:站内,2:360,3:百度,4:搜狗，5新浪，6必应',
+  `display_size` varchar(255) NOT NULL DEFAULT '' COMMENT '分辨率',
+  `domain_area_id` int(2) NOT NULL DEFAULT '2' COMMENT '域名地址地区编号',
+  `area_id` int(2) NOT NULL DEFAULT '2' COMMENT 'ip地址地区编号',
+  `dstype` tinyint(1) NOT NULL DEFAULT '1' COMMENT '访问终端 1:pc端,2:手机端',
+  `source_from` tinyint(1) NOT NULL DEFAULT '0' COMMENT '访问来源 0:其他,1:直接输入网址,2:站内来源',
+  `operating_system` tinyint(1) NOT NULL DEFAULT '0' COMMENT '操作系统  ''Unknown'',''Android'',''iPhone'',''Windows XP'',''Windows 2003'',''Windows 7'',''Windows 8'',''Windows 10'',''Windows 2000'',''Windows Vista'',''Windows NT''',
+  `session_live` tinyint(1) unsigned DEFAULT '0' COMMENT 'session是否超时',
+  `network_access` tinyint(1) NOT NULL DEFAULT '0' COMMENT '网络接入商0''其他'',1''电信'',2''移动'',3''联通'',4''铁通''',
+  PRIMARY KEY (`log_id`),
+  KEY `area_id` (`area_id`),
+  KEY `browser_type` (`browser_type`),
+  KEY `long_time` (`long_time`),
+  KEY `log_time` (`log_time`),
+  KEY `session_id` (`session_id`),
+  KEY `cookie` (`cookie`),
+  KEY `ip_address` (`ip_address`),
+  KEY `dstype` (`dstype`),
+  KEY `search_engines` (`search_engines`)
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;";
+        $sql_spider_log = "
+        CREATE TABLE `spider_log%s` (
+  `id` int(16) unsigned NOT NULL AUTO_INCREMENT COMMENT '编号',
+  `dstype` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1PC2M',
+  `spider_type` tinyint(2) unsigned NOT NULL DEFAULT '0' COMMENT '蜘蛛类型：0=>''其他'',1=>''站内搜索'',2=>''360'',3=>''百度'',4=>''搜狗'',5=>''新浪'',6=>''必应'',7=>''谷歌'',8=>''神马'',9=>''雅虎'',10=>''有道'',11=>''中国搜索'',12=>''维基百科'',',
+  `log_time` datetime NOT NULL COMMENT '日志时间',
+  `source_ip` varchar(255) NOT NULL DEFAULT '' COMMENT '蜘蛛IP',
+  `target_url` varchar(255) NOT NULL DEFAULT '' COMMENT '目标url',
+  `user_agent` varchar(255) NOT NULL DEFAULT '' COMMENT 'user_agent',
+  PRIMARY KEY (`id`),
+  KEY `log_time` (`log_time`),
+  KEY `spider_type` (`spider_type`),
+  KEY `dstype` (`dstype`)
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
+        ";
+        $month = date('Y-m-01', strtotime($month));
+        $log_suffix = Db::table('log_relation')->where('month', '=', $month)->value('log_suffix');
+        if ($log_suffix === null && $is_select == false) {
+            $max = DB::table('log_relation')->max('log_suffix');
+            $log_suffix = $max + 1;
+            Db::startTrans();
+            try {
+                Db::execute(sprintf($sql_spider_log, $log_suffix));
+                Db::execute(sprintf($sql_url_log, $log_suffix));
+                Db::table('log_relation')->insert(['month' => $month, 'log_suffix' => $log_suffix]);
+                // 提交事务
+                Db::commit();
+            } catch (\Exception $e) {
+                // 回滚事务
+                Db::rollback();
+                Log::error('创建日志分表失败！'.$e->getMessage().PHP_EOL.$e->getTraceAsString());
+                exit;
+            }
+        }
+        if ($log_suffix == 0 || $log_suffix === null) {
+            $log_suffix = '';
+        }
+        return $log_suffix;
+    }
+
+    /**
+     * @param $multiarr 二维数组
+     * @param $index 要保留的键值
+     * @return array 一维数组
+     */
+    public static function arrayToSingleByIndex($multiarr, $index)
+    {
+        $data = array();
+        if (!empty($multiarr) && is_array($multiarr)) {
+
+            foreach ($multiarr as $k => $v) {
+
+                $data[] = $v[$index];
+
+            }
+        }
+        return array_unique($data);
+    }
+
+    /**
+     * 利用curl远程上传文件，支持get/post, 支持开启/禁用证书(开启证书前需配置https公钥证书)
+     * @param $post_url
+     * @param $post_data
+     * @param int $req_type 0:post 1:get
+     * @param int $is_ssl 0:ssl 1:nossl
+     * @return mixed|string
+     */
+    public static function remoteUploadWithCurl($post_url, $post_data, $req_type = 0, $is_ssl = 0)
+    {
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $post_url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);//设置接收返回，否则只会返回布尔值
+        // 开启post (curl默认是get)
+        if ($req_type == 0) {
+            curl_setopt($curl, CURLOPT_POST, 1);
+            curl_setopt($curl, CURLOPT_POSTFIELDS, $post_data);
+        }
+        // 开启/忽略SSL
+        if ($is_ssl == 0) {
+            // 启用SSL
+            curl_setopt($curl, CURLOPT_SSLCERTTYPE, "PEM");
+            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 1);
+            curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+//            curl_setopt($curl, CURLOPT_CAPATH, APPPATH . 'keystore/');
+//            curl_setopt($curl, CURLOPT_CAINFO, APPPATH . 'keystore/public.pem');
+        } else {
+            // 忽略SSL
+            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+        }
+        // 真正执行
+        $result = curl_exec($curl);
+        $error = curl_error($curl);
+
+        // 设置一些额外的选项
+        curl_setopt($curl, CURLOPT_TIMEOUT, 600);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl, CURLOPT_USERAGENT, 'Mozilla/5.0');
+        return $error ? $error : $result;
+    }
+
+    /**
+     * 模拟请求
+     * @param $url
+     * @param string $data
+     * @param array $header ["Content-Type: text/xml","Authorization: Basic ,'Content-Length:2']
+     * @param string $method GET
+     * @param int $timeout 60
+     * @return bool|string
+     */
+    public static function httpRequest($url, $data = [], $method = 'GET', $header = [], $timeout = 60)
+    {
+        $ip = mt_rand(11, 191) . "." . mt_rand(0, 240) . "." . mt_rand(1, 240) . "." . mt_rand(1, 240);
+        $header=array_merge($header,[
+            'CLIENT-IP:' . $ip,
+            'X-FORWARDED-FOR:' . $ip,
+        ]);
+        ini_set('user_agent','Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36');
+        $content = http_build_query($data);
+        if(strtoupper($method) == 'POST'){
+            $header=array_merge($header,['Content-type:application/x-www-form-urlencoded','Content-length:'.strlen($content)]);
+        }
+        $opts = ['http' =>
+            [
+                'method' => strtoupper($method),
+                'header' => implode("\r\n", $header),
+                'content' => $content,
+                'timeout' => $timeout
+            ]
+        ];
+        try{
+            $result=file_get_contents($url, false, stream_context_create($opts));
+        }catch (Exception $e){
+            Zlog::write($e->getMessage());
+            return false;
+        }
+        return $result;
+    }
+
+    public static function utf8_strrev($str)
+    {
+        preg_match_all('/./us', $str, $ar);
+        return join('', array_reverse($ar[0]));
+    }
+
+    public static function getAreaId($str)
+    {
+        if (strpos($str, '新疆') !== false) {
+            return '新疆';
+        }
+        if (strpos($str, '宁夏') !== false) {
+            return '宁夏';
+        }
+        if (strpos($str, '内蒙古') !== false) {
+            return '内蒙古';
+        }
+        if (strpos($str, '台湾') !== false) {
+            return '台湾';
+        }
+        $res = '';
+        $str = self::utf8_strrev($str);
+        $first_word = substr($str, 0, 3);
+        //省 市 区 县 else
+        if ($first_word == '区' || $first_word == '县' || $first_word == '市' || $first_word == '州') {
+            $idx_city = strpos($str, '市', 9);
+            $idx_zhou = strpos($str, '州', 9);
+            $idx_province = strpos($str, '省', 9);
+            $idx = $idx_city ? $idx_city : ($idx_zhou ? $idx_zhou : $idx_province);
+            if ($idx_zhou && $idx_province && !$idx_city) {
+                $idx = ($idx_zhou > $idx_province) ? $idx_province : $idx_zhou;
+            }
+            if ($idx) {
+                $res = self::utf8_strrev(substr($str, 3, $idx - 3));
+            } else {
+                $res = self::utf8_strrev(substr($str, 3));
+                $pro = substr($res, 0, 6);
+                if ($pro == '广西') {
+                    $res = substr($res, 6);
+                }
+            }
+        } elseif ($first_word == '省') {
+            $res = self::utf8_strrev(substr($str, 3));
+        } else {
+            $res = self::utf8_strrev($str);
+        }
+        return $res;
+    }
+
+    public static function curlRequest($post_url)
+    {
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $post_url);
+
+        // 忽略SSL
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+
+        // 设置超时、接收返回
+        curl_setopt($curl, CURLOPT_TIMEOUT, 600);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+
+        $ip = mt_rand(11, 191) . "." . mt_rand(0, 240) . "." . mt_rand(1, 240) . "." . mt_rand(1, 240);
+        // 随机ip
+//        $agentarry = [
+//            //PC端的UserAgent
+//            "safari 5.1 – MAC" => "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11",
+//            "safari 5.1 – Windows" => "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
+//            "Firefox 38esr" => "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0",
+//            "IE 11" => "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; .NET CLR 2.0.50727; .NET CLR 3.0.30729; .NET CLR 3.5.30729; InfoPath.3; rv:11.0) like Gecko",
+//            "IE 9.0" => "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0",
+//            "IE 8.0" => "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0)",
+//            "IE 7.0" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0)",
+//            "IE 6.0" => "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+//            "Firefox 4.0.1 – MAC" => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
+//            "Firefox 4.0.1 – Windows" => "Mozilla/5.0 (Windows NT 6.1; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
+//            "Opera 11.11 – MAC" => "Opera/9.80 (Macintosh; Intel Mac OS X 10.6.8; U; en) Presto/2.8.131 Version/11.11",
+//            "Opera 11.11 – Windows" => "Opera/9.80 (Windows NT 6.1; U; en) Presto/2.8.131 Version/11.11",
+//            "Chrome 17.0 – MAC" => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_0) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.56 Safari/535.11",
+//            "傲游（Maxthon）" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Maxthon 2.0)",
+//            "腾讯TT" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; TencentTraveler 4.0)",
+//            "世界之窗（The World） 2.x" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)",
+//            "世界之窗（The World） 3.x" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; The World)",
+//            "360浏览器" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; 360SE)",
+//            "搜狗浏览器 1.x" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; SE 2.X MetaSr 1.0; SE 2.X MetaSr 1.0; .NET CLR 2.0.50727; SE 2.X MetaSr 1.0)",
+//            "Avant" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Avant Browser)",
+//            "Green Browser" => "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)",
+//            //移动端口
+//            "safari iOS 4.33 – iPhone" => "Mozilla/5.0 (iPhone; U; CPU iPhone OS 4_3_3 like Mac OS X; en-us) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8J2 Safari/6533.18.5",
+//            "safari iOS 4.33 – iPod Touch" => "Mozilla/5.0 (iPod; U; CPU iPhone OS 4_3_3 like Mac OS X; en-us) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8J2 Safari/6533.18.5",
+//            "safari iOS 4.33 – iPad" => "Mozilla/5.0 (iPad; U; CPU OS 4_3_3 like Mac OS X; en-us) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8J2 Safari/6533.18.5",
+//            "Android N1" => "Mozilla/5.0 (Linux; U; Android 2.3.7; en-us; Nexus One Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
+//            "Android QQ浏览器 For android" => "MQQBrowser/26 Mozilla/5.0 (Linux; U; Android 2.3.7; zh-cn; MB200 Build/GRJ22; CyanogenMod-7) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
+//            "Android Opera Mobile" => "Opera/9.80 (Android 2.3.4; Linux; Opera Mobi/build-1107180945; U; en-GB) Presto/2.8.149 Version/11.10",
+//            "Android Pad Moto Xoom" => "Mozilla/5.0 (Linux; U; Android 3.0; en-us; Xoom Build/HRI39) AppleWebKit/534.13 (KHTML, like Gecko) Version/4.0 Safari/534.13",
+//            "BlackBerry" => "Mozilla/5.0 (BlackBerry; U; BlackBerry 9800; en) AppleWebKit/534.1+ (KHTML, like Gecko) Version/6.0.0.337 Mobile Safari/534.1+",
+//            "WebOS HP Touchpad" => "Mozilla/5.0 (hp-tablet; Linux; hpwOS/3.0.0; U; en-US) AppleWebKit/534.6 (KHTML, like Gecko) wOSBrowser/233.70 Safari/534.6 TouchPad/1.0",
+//            "UC标准" => "NOKIA5700/ UCWEB7.0.2.37/28/999",
+//            "UCOpenwave" => "Openwave/ UCWEB7.0.2.37/28/999",
+//            "UC Opera" => "Mozilla/4.0 (compatible; MSIE 6.0; ) Opera/UCWEB7.0.2.37/28/999",
+//            "微信内置浏览器" => "Mozilla/5.0 (Linux; Android 6.0; 1503-M02 Build/MRA58K) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/37.0.0.0 Mobile MQQBrowser/6.2 TBS/036558 Safari/537.36 MicroMessenger/6.3.25.861 NetType/WIFI Language/zh_CN",
+//            // ""=>"",
+//        ];
+        $agentarry = ['Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36'];
+        $user_agent = $agentarry[array_rand($agentarry, 1)];  //随机浏览器UA
+        $header = array(
+            'CLIENT-IP:' . $ip,
+            'X-FORWARDED-FOR:' . $ip,
+        );    //构造ip
+        curl_setopt($curl, CURLOPT_HTTPHEADER, $header); // 请求头
+//        curl_setopt($curl, CURLOPT_REFERER, $referurl);  //模拟来源网址
+        curl_setopt($curl, CURLOPT_USERAGENT, $user_agent); //模拟常用浏览器的UA
+
+        // 真正执行
+        $result = curl_exec($curl);
+        $error = curl_error($curl);
+        return $error ? $error : $result;
+    }
+
+    /**
+     * 是否是高转化页面
+     * @param string $url
+     * @param bool $type 1pc 0m
+     * @return bool
+     */
+    public static function isTransform($url,$type = true){
+        if (strlen(trim($url)) > 0){
+            $url.="\n";
+            if($type){
+                $is_course=preg_match('/\/kecheng[\/-]/',$url);
+                $is_school=preg_match('/\/xuexiao[\/-]\d+[(\.html)\/]\n/',$url);
+                $is_news=preg_match('/\/news-\d+[(\.html)\/]\n/',$url);
+                $is_top=preg_match('/\/news\/\d+(\.html)/',$url);
+                $is_know=preg_match('/\/ask\/ask-\d+\/\n/',$url);
+            }else{
+                $is_course=preg_match('/\/kecheng-/',$url);
+                $is_school=preg_match('/\/xuexiao-\d+(\.html)/',$url);
+                $is_news=preg_match('/\.com\/news-\d+(\.html)/',$url);
+                $is_top=preg_match('/\/news-\d+\.html/',$url);
+                $is_know=preg_match('/(\/ask-\d+\.html)|(\/account\/tiwen)|(\/account\/answer)|(\/user\/success\.html)/',$url);
+            }
+            if($is_course||$is_school||$is_news||$is_top||$is_know){
+                return 1;
+            }
+        }
+       return 2;
+    }
+
+    /**
+     * 关键词备注
+     * @param int|array $kw_id
+     * @param int $type 0添加1修改2审核3删除
+     * @param string $memo
+     */
+    public static function keywordsLog($kw_id,$type,$memo){
+        if(is_array($kw_id)){
+            $data =[];
+            $user_id =session('org_user_id');
+            $time =date('Y-m-d H:i:s');
+            foreach ($kw_id as $item){
+                $data[]=[
+                    'kw_id'=>(int)$item,
+                    'operate_time'=>$time,
+                    'operate_user'=>$user_id,
+                    'type'=>$type,
+                    'memo'=>$memo
+                ];
+            }
+            Db::table('keywords_log')->insertAll($data);
+        }else{
+            Db::table('keywords_log')->insert([
+                'kw_id'=>(int)$kw_id,
+                'operate_time'=>date('Y-m-d H:i:s'),
+                'operate_user'=>session('org_user_id'),
+                'type'=>$type,
+                'memo'=>$memo
+            ]);
+        }
+    }
+
+    /**
+     * 随机数
+     * @param int $length
+     * @return string
+     */
+    public static function randomString($length = 8)
+    {
+        $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-';
+        $charactersLength = strlen($characters);
+        $randomString = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[rand(0, $charactersLength - 1)];
+        }
+        return $randomString;
+    }
+
+    /**
+     * 汉字转为拼音的函数
+     * @param $_String
+     * @param string $_Code
+     * @return mixed
+     */
+    public static function Pinyin($_String, $_Code = 'UTF8')
+    { //GBK页面可改为gb2312，其他随意填写为UTF8
+        $_DataKey = "a|ai|an|ang|ao|ba|bai|ban|bang|bao|bei|ben|beng|bi|bian|biao|bie|bin|bing|bo|bu|ca|cai|can|cang|cao|ce|ceng|cha" .
+            "|chai|chan|chang|chao|che|chen|cheng|chi|chong|chou|chu|chuai|chuan|chuang|chui|chun|chuo|ci|cong|cou|cu|" .
+            "cuan|cui|cun|cuo|da|dai|dan|dang|dao|de|deng|di|dian|diao|die|ding|diu|dong|dou|du|duan|dui|dun|duo|e|en|er" .
+            "|fa|fan|fang|fei|fen|feng|fo|fou|fu|ga|gai|gan|gang|gao|ge|gei|gen|geng|gong|gou|gu|gua|guai|guan|guang|gui" .
+            "|gun|guo|ha|hai|han|hang|hao|he|hei|hen|heng|hong|hou|hu|hua|huai|huan|huang|hui|hun|huo|ji|jia|jian|jiang" .
+            "|jiao|jie|jin|jing|jiong|jiu|ju|juan|jue|jun|ka|kai|kan|kang|kao|ke|ken|keng|kong|kou|ku|kua|kuai|kuan|kuang" .
+            "|kui|kun|kuo|la|lai|lan|lang|lao|le|lei|leng|li|lia|lian|liang|liao|lie|lin|ling|liu|long|lou|lu|lv|luan|lue" .
+            "|lun|luo|ma|mai|man|mang|mao|me|mei|men|meng|mi|mian|miao|mie|min|ming|miu|mo|mou|mu|na|nai|nan|nang|nao|ne" .
+            "|nei|nen|neng|ni|nian|niang|niao|nie|nin|ning|niu|nong|nu|nv|nuan|nue|nuo|o|ou|pa|pai|pan|pang|pao|pei|pen" .
+            "|peng|pi|pian|piao|pie|pin|ping|po|pu|qi|qia|qian|qiang|qiao|qie|qin|qing|qiong|qiu|qu|quan|que|qun|ran|rang" .
+            "|rao|re|ren|reng|ri|rong|rou|ru|ruan|rui|run|ruo|sa|sai|san|sang|sao|se|sen|seng|sha|shai|shan|shang|shao|" .
+            "she|shen|sheng|shi|shou|shu|shua|shuai|shuan|shuang|shui|shun|shuo|si|song|sou|su|suan|sui|sun|suo|ta|tai|" .
+            "tan|tang|tao|te|teng|ti|tian|tiao|tie|ting|tong|tou|tu|tuan|tui|tun|tuo|wa|wai|wan|wang|wei|wen|weng|wo|wu" .
+            "|xi|xia|xian|xiang|xiao|xie|xin|xing|xiong|xiu|xu|xuan|xue|xun|ya|yan|yang|yao|ye|yi|yin|ying|yo|yong|you" .
+            "|yu|yuan|yue|yun|za|zai|zan|zang|zao|ze|zei|zen|zeng|zha|zhai|zhan|zhang|zhao|zhe|zhen|zheng|zhi|zhong|" .
+            "zhou|zhu|zhua|zhuai|zhuan|zhuang|zhui|zhun|zhuo|zi|zong|zou|zu|zuan|zui|zun|zuo";
+        $_DataValue = "-20319|-20317|-20304|-20295|-20292|-20283|-20265|-20257|-20242|-20230|-20051|-20036|-20032|-20026|-20002|-19990" .
+            "|-19986|-19982|-19976|-19805|-19784|-19775|-19774|-19763|-19756|-19751|-19746|-19741|-19739|-19728|-19725" .
+            "|-19715|-19540|-19531|-19525|-19515|-19500|-19484|-19479|-19467|-19289|-19288|-19281|-19275|-19270|-19263" .
+            "|-19261|-19249|-19243|-19242|-19238|-19235|-19227|-19224|-19218|-19212|-19038|-19023|-19018|-19006|-19003" .
+            "|-18996|-18977|-18961|-18952|-18783|-18774|-18773|-18763|-18756|-18741|-18735|-18731|-18722|-18710|-18697" .
+            "|-18696|-18526|-18518|-18501|-18490|-18478|-18463|-18448|-18447|-18446|-18239|-18237|-18231|-18220|-18211" .
+            "|-18201|-18184|-18183|-18181|-18012|-17997|-17988|-17970|-17964|-17961|-17950|-17947|-17931|-17928|-17922" .
+            "|-17759|-17752|-17733|-17730|-17721|-17703|-17701|-17697|-17692|-17683|-17676|-17496|-17487|-17482|-17468" .
+            "|-17454|-17433|-17427|-17417|-17202|-17185|-16983|-16970|-16942|-16915|-16733|-16708|-16706|-16689|-16664" .
+            "|-16657|-16647|-16474|-16470|-16465|-16459|-16452|-16448|-16433|-16429|-16427|-16423|-16419|-16412|-16407" .
+            "|-16403|-16401|-16393|-16220|-16216|-16212|-16205|-16202|-16187|-16180|-16171|-16169|-16158|-16155|-15959" .
+            "|-15958|-15944|-15933|-15920|-15915|-15903|-15889|-15878|-15707|-15701|-15681|-15667|-15661|-15659|-15652" .
+            "|-15640|-15631|-15625|-15454|-15448|-15436|-15435|-15419|-15416|-15408|-15394|-15385|-15377|-15375|-15369" .
+            "|-15363|-15362|-15183|-15180|-15165|-15158|-15153|-15150|-15149|-15144|-15143|-15141|-15140|-15139|-15128" .
+            "|-15121|-15119|-15117|-15110|-15109|-14941|-14937|-14933|-14930|-14929|-14928|-14926|-14922|-14921|-14914" .
+            "|-14908|-14902|-14894|-14889|-14882|-14873|-14871|-14857|-14678|-14674|-14670|-14668|-14663|-14654|-14645" .
+            "|-14630|-14594|-14429|-14407|-14399|-14384|-14379|-14368|-14355|-14353|-14345|-14170|-14159|-14151|-14149" .
+            "|-14145|-14140|-14137|-14135|-14125|-14123|-14122|-14112|-14109|-14099|-14097|-14094|-14092|-14090|-14087" .
+            "|-14083|-13917|-13914|-13910|-13907|-13906|-13905|-13896|-13894|-13878|-13870|-13859|-13847|-13831|-13658" .
+            "|-13611|-13601|-13406|-13404|-13400|-13398|-13395|-13391|-13387|-13383|-13367|-13359|-13356|-13343|-13340" .
+            "|-13329|-13326|-13318|-13147|-13138|-13120|-13107|-13096|-13095|-13091|-13076|-13068|-13063|-13060|-12888" .
+            "|-12875|-12871|-12860|-12858|-12852|-12849|-12838|-12831|-12829|-12812|-12802|-12607|-12597|-12594|-12585" .
+            "|-12556|-12359|-12346|-12320|-12300|-12120|-12099|-12089|-12074|-12067|-12058|-12039|-11867|-11861|-11847" .
+            "|-11831|-11798|-11781|-11604|-11589|-11536|-11358|-11340|-11339|-11324|-11303|-11097|-11077|-11067|-11055" .
+            "|-11052|-11045|-11041|-11038|-11024|-11020|-11019|-11018|-11014|-10838|-10832|-10815|-10800|-10790|-10780" .
+            "|-10764|-10587|-10544|-10533|-10519|-10331|-10329|-10328|-10322|-10315|-10309|-10307|-10296|-10281|-10274" .
+            "|-10270|-10262|-10260|-10256|-10254";
+        $_TDataKey = explode('|', $_DataKey);
+        $_TDataValue = explode('|', $_DataValue);
+        $_Data = array_combine($_TDataKey, $_TDataValue);
+        arsort($_Data);
+        reset($_Data);
+        if ($_Code != 'gb2312') $_String = self::_U2_Utf8_Gb($_String);
+        $_Res = '';
+        for ($i = 0; $i < strlen($_String); $i++) {
+            $_P = ord(substr($_String, $i, 1));
+            if ($_P > 160) {
+                $_Q = ord(substr($_String, ++$i, 1));
+                $_P = $_P * 256 + $_Q - 65536;
+            }
+            $_Res .= self::_Pinyin($_P, $_Data);
+        }
+        return preg_replace("/[^a-z0-9]*/", '', $_Res);
+    }
+
+    public static function _Pinyin($_Num, $_Data)
+    {
+        if ($_Num > 0 && $_Num < 160) {
+            return chr($_Num);
+        } elseif ($_Num < -20319 || $_Num > -10247) {
+            return '';
+        } else {
+            foreach ($_Data as $k => $v) {
+                if ($v <= $_Num) break;
+            }
+            return $k;
+        }
+    }
+
+    public static function _U2_Utf8_Gb($_C)
+    {
+        $_String = '';
+        if ($_C < 0x80) {
+            $_String .= $_C;
+        } elseif ($_C < 0x800) {
+            $_String .= chr(0xC0 | $_C >> 6);
+            $_String .= chr(0x80 | $_C & 0x3F);
+        } elseif ($_C < 0x10000) {
+            $_String .= chr(0xE0 | $_C >> 12);
+            $_String .= chr(0x80 | $_C >> 6 & 0x3F);
+            $_String .= chr(0x80 | $_C & 0x3F);
+        } elseif ($_C < 0x200000) {
+            $_String .= chr(0xF0 | $_C >> 18);
+            $_String .= chr(0x80 | $_C >> 12 & 0x3F);
+            $_String .= chr(0x80 | $_C >> 6 & 0x3F);
+            $_String .= chr(0x80 | $_C & 0x3F);
+        }
+        return iconv('UTF-8', 'GB2312', $_String);
+    }
+
+}

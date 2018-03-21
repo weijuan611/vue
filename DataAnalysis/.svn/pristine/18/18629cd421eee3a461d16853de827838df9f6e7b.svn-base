@@ -1,0 +1,22 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2018/3/10
+ * Time: 13:59
+ */
+
+namespace app\index\controller\material;
+
+
+use app\index\controller\Base;
+use app\index\model\TaskDetails;
+
+class TaskDetail extends Base
+{
+    public function getList(){
+        $model = new TaskDetails();
+        $result = $model->getList();
+        return json(['data'=>$result['data'],'total'=>$result['total'],'buttonControl'=>[]]);
+    }
+}

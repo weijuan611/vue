@@ -1,0 +1,1831 @@
+<template>
+    <page-wrap>
+
+        <!-- 标题栏 -->
+        <page-title title="关键词-词库与拓展"/>
+
+        <!-- 搜索栏 -->
+        <search-wrap>
+            <el-form ref="search-form" label-width="70px" :model="searchData" size="mini">
+                <el-row :gutter="20">
+                    <el-col :sm="7" :md="6" :lg="5">
+                        <div class="bg">
+                            <el-form-item label="关键词：">
+                                <el-input v-model="searchData.keyword" placeholder="请输入查询的关键词"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+
+                    <el-col :sm="7" :md="6" :lg="5">
+                        <div class="bg">
+                            <el-form-item label="分类：">
+                                <el-input class="bg_button" v-model="searchData.filterClass.value"
+                                          @click.native="handleOpenFilterClass" placeholder="请选择过滤的分类"
+                                          readonly></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+
+                    <el-col :sm="6" :md="6" :lg="5">
+                        <div class="bg">
+                            <el-form-item label="评价：" label-width="82px">
+                                <el-input class="bg_button"
+                                          @click.native="handleOpenFilterAssess" placeholder="请选择评价"
+                                          readonly></el-input>
+
+                                <!-- <el-select v-model="searchData.assess" placeholder="请选择评价">
+                                 <el-option
+                                   v-for="item in assessOptions"
+                                   :key="item.value"
+                                   :label="item.label"
+                                   :value="item.value">
+                                 </el-option>
+                               </el-select> -->
+                            </el-form-item>
+                        </div>
+                    </el-col>
+
+                    <el-col :sm="24" :md="24" :lg="9">
+                        <div class="bg">
+                            <el-form-item label="追踪对比：" label-width="90px">
+                                <el-input class="bg_button" v-model="searchData.filterClass.value"
+                                          @click.native="openTraceCompare = true" placeholder="请选择需要对比的追踪条件"
+                                          readonly></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+
+                </el-row>
+
+                <el-row :gutter="20">
+
+                    <el-col :sm="7" :md="6" :lg="5">
+                        <div class="bg">
+                            <el-form-item label="指标：">
+                                <el-input @click.native="openFilterIndex = true" class="bg_button"
+                                          placeholder="请设定限制的指标" readonly></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+
+                    <el-col :sm="7" :md="6" :lg="5">
+                        <div class="bg">
+                            <el-form-item label="添加人：" label-width="82px">
+                                <el-cascader
+                                        :options="dp_user_name"
+                                        :show-all-levels="false"
+                                        v-model="searchData.dp_user_id"
+                                        change-on-select
+                                        @change="handleChange">
+                                </el-cascader>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+
+                    <el-col :sm="7" :md="9" :lg="9">
+                        <div class="bg">
+                            <el-form-item label="添加时间：" label-width="90px">
+                                <el-date-picker
+                                        v-model="searchData.dateTime"
+                                        type="daterange"
+                                        value-format="yyyy-MM-dd"
+                                        range-separator="至"
+                                        start-placeholder="开始日期"
+                                        end-placeholder="结束日期">
+                                </el-date-picker>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+
+                </el-row>
+
+                <el-row :gutter="20">
+                    <el-col :span="10">
+                        <div class="bg">
+                            <!--<el-form-item label="标签：">-->
+                            <!--<el-input placeholder="请选择过滤的标签" @click.native="handleOpenFilterTags" class="bg_button"-->
+                            <!--readonly></el-input>-->
+                            <!--</el-form-item>-->
+                            <el-form-item label="类型：">
+                                <el-radio-group v-model="radio_group">
+                                    <el-radio :label="2">普通标签</el-radio>
+                                    <el-radio :label="1">学校标签</el-radio>
+                                </el-radio-group>&nbsp;&nbsp;
+                                <el-select
+                                        v-model="searchData.value9"
+                                        multiple
+                                        filterable
+                                        remote
+                                        reserve-keyword
+                                        placeholder="请输入关键词"
+                                        :remote-method="remoteMethod"
+                                        :loading="loading_search">
+                                    <el-option
+                                            v-for="item in options4"
+                                            :key="item.value"
+                                            :label="item.label"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="14">
+                        <el-form-item label-width="0px">
+                            <el-button type="primary" @click="onSubmit">查询</el-button>
+                            <el-button type="danger" @click="onClear">清空</el-button>
+                            <el-button type="primary" plain @click="handleOpenAddKeyword"
+                                       :disabled="!buttonControl.lexiconkeywordsadd">添加关键词
+                            </el-button>
+                            <el-button type="success" plain @click="handleOpenImportKeyword"
+                                       :disabled="!buttonControl.lexiconimport">导入
+                            </el-button>
+                            <el-button type="danger" plain @click="openTraceSet = true" :disabled="!buttonControl.lexiconopponentlist">追踪设置</el-button>
+                            <el-button type="warning" plain @click="getTagsInfo">标签配置</el-button>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+            </el-form>
+        </search-wrap>
+
+        <!-- 表格 -->
+        <table-wrap>
+            <div class="withTableHeader" style="width: 98.8%;">
+                <el-button type="primary" plain size="mini" @click="handleOpenEditKeywordBatch"
+                           :disabled="!buttonControl.lexiconkeywordseditbench">批量编辑
+                </el-button>
+                <el-badge :value="moreTableColsNumber" class="moreTableCols">
+                    <el-button size="mini" @click="handleMoreTableCols">更多展示列</el-button>
+                    <div v-show="showMoreTableCols" id="moreTableCols">
+                        <el-checkbox-group v-model="hiddenTableCols" @change="selectHiddenTableCols">
+                            <el-checkbox label="kws_count_pc">PC搜索量</el-checkbox>
+                            <el-checkbox label="kws_count_m">M搜索量</el-checkbox>
+                            <el-checkbox label="baidu_rank_pc">PC百度排名</el-checkbox>
+                            <el-checkbox label="baidu_rank_m">M百度排名</el-checkbox>
+                            <el-checkbox label="trace_rank_pc">PC追踪排名</el-checkbox>
+                            <el-checkbox label="trace_rank_m">M追踪排名</el-checkbox>
+                            <el-checkbox label="baidu_index_pc">PC百度指数</el-checkbox>
+                            <el-checkbox label="baidu_index_m">M百度指数</el-checkbox>
+                            <el-checkbox label="news_index">PC新闻指数</el-checkbox>
+                            <el-checkbox label="mnews_index">M新闻指数</el-checkbox>
+                            <el-checkbox label="course_index">PC课程指数</el-checkbox>
+                            <el-checkbox label="mcourse_index">M课程指数</el-checkbox>
+                            <el-checkbox label="school_index">PC学校指数</el-checkbox>
+                            <el-checkbox label="mschool_index">M学校指数</el-checkbox>
+                            <el-checkbox label="zhidao_index">PC知道指数</el-checkbox>
+                            <el-checkbox label="mzhidao_index">M知道指数</el-checkbox>
+                        </el-checkbox-group>
+                    </div>
+                </el-badge>
+            </div>
+            <el-table
+                    ref="table"
+                    v-loading="loading"
+                    tooltip-effect="dark"
+                    :data="tableData"
+                    @select="selectTableRow"
+                    @select-all="selectTableAllRow"
+                    @sort-change="tableSortChange"
+                    size="mini"
+                    :height="tabTableHeight">
+                <el-table-column fixed="left" type="selection" width="55px"></el-table-column>
+                <el-table-column fixed="left" prop="keyword" :show-overflow-tooltip="isTrue" width="220px" label="关键词">
+                    <template slot-scope="props">
+                        <a @click="clickKeyword(props.row.keyword)">{{props.row.keyword}}</a>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="catename" width="120px" show-overflow-tooltip label="分类"></el-table-column>
+                <!-- <el-table-column prop="tags" label="标签" v-show="showTableColTags"></el-table-column> -->
+
+                <el-table-column prop="score_pc" sortable="custom" width="110px" label="PC评价">
+                    <template slot-scope="props">
+                        <span v-show="props.row.score_pc == 1" class="check_green">完美推广</span>
+                        <span v-show="props.row.score_pc == 2" class="check_orange">一步之遥</span>
+                        <span v-show="props.row.score_pc == 3" class="check_orange">初见成效</span>
+                        <span v-show="props.row.score_pc == 4" class="check_red">无效推广</span>
+                        <span v-show="props.row.score_pc == 5" class="check_red">毫无推广</span>
+                        <span v-show="props.row.score_pc == 6" class="check_gray">暂无数据</span>
+                    </template>
+                </el-table-column>
+
+                <el-table-column prop="score_m" sortable="custom" width="110px" label="M评价">
+                    <template slot-scope="props">
+                        <span v-show="props.row.score_m == 1" class="check_green">完美推广</span>
+                        <span v-show="props.row.score_m == 2" class="check_orange">一步之遥</span>
+                        <span v-show="props.row.score_m == 3" class="check_orange">初见成效</span>
+                        <span v-show="props.row.score_m == 4" class="check_red">无效推广</span>
+                        <span v-show="props.row.score_m == 5" class="check_red">毫无推广</span>
+                        <span v-show="props.row.score_m == 0" class="check_gray">暂无数据</span>
+                    </template>
+                </el-table-column>
+
+                <el-table-column prop="kws_count_pc" v-if="hiddenTableColsBool.kws_count_pc" sortable="custom" width="120px" label="PC搜索量"></el-table-column>
+                <el-table-column prop="kws_count_m" v-if="hiddenTableColsBool.kws_count_m" sortable="custom" width="110px" label="M搜索量"></el-table-column>
+                <el-table-column prop="baidu_rank_pc" v-if="hiddenTableColsBool.baidu_rank_pc" sortable="custom" width="130px" label="PC百度排名"></el-table-column>
+                <el-table-column prop="baidu_rank_m" v-if="hiddenTableColsBool.baidu_rank_m" sortable="custom" width="130px" label="M百度排名"></el-table-column>
+                <el-table-column prop="trace_rank_pc" v-if="hiddenTableColsBool.trace_rank_pc" sortable="custom" width="130px" label="PC追踪排名"></el-table-column>
+                <el-table-column prop="trace_rank_m" v-if="hiddenTableColsBool.trace_rank_m" sortable="custom" width="130px" label="M追踪排名"></el-table-column>
+                <el-table-column prop="baidu_index_pc" v-if="hiddenTableColsBool.baidu_index_pc" sortable="custom" width="130px" label="PC百度指数"></el-table-column>
+                <el-table-column prop="baidu_index_m" v-if="hiddenTableColsBool.baidu_index_m" sortable="custom" width="130px" label="M百度指数"></el-table-column>
+                <el-table-column prop="news_index" v-if="hiddenTableColsBool.news_index" sortable="custom" width="130px" label="PC新闻指数"></el-table-column>
+                <el-table-column prop="mnews_index" v-if="hiddenTableColsBool.mnews_index" sortable="custom" width="130px" label="M新闻指数"></el-table-column>
+                <el-table-column prop="course_index" v-if="hiddenTableColsBool.course_index" sortable="custom" width="130px" label="PC课程指数"></el-table-column>
+                <el-table-column prop="mcourse_index" v-if="hiddenTableColsBool.mcourse_index" sortable="custom" width="130px" label="M课程指数"></el-table-column>
+                <el-table-column prop="school_index" v-if="hiddenTableColsBool.school_index" sortable="custom" width="130px" label="PC学校指数"></el-table-column>
+                <el-table-column prop="mschool_index" v-if="hiddenTableColsBool.mschool_index" sortable="custom" width="130px" label="M学校指数"></el-table-column>
+                <el-table-column prop="zhidao_index" v-if="hiddenTableColsBool.zhidao_index" sortable="custom" width="130px" label="PC知道指数"></el-table-column>
+                <el-table-column prop="mzhidao_index" v-if="hiddenTableColsBool.mzhidao_index" sortable="custom" width="130px" label="M知道指数"></el-table-column>
+
+                <el-table-column prop="user_name" label="添加人"></el-table-column>
+                <el-table-column prop="add_time" width="160px" label="添加时间"></el-table-column>
+                <el-table-column label="操作" header-align="center" fixed="right" width="210px">
+                    <template slot-scope="scope">
+                        <!-- <el-button type="text" plain size="mini" icon="el-icon-view" @click="changeKeyWord(scope.row.keyword)">拓展</el-button> -->
+                        <el-button type="text" plain size="mini" icon="el-icon-view"
+                                   @click="handleOpenTrend(scope.row.keyword)"></el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-edit"
+                                   @click="handleOpenEditKeyword(scope.row)"
+                                   :disabled="!buttonControl.lexiconkeywordsedit"></el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-refresh"
+                                   @click="refresh(scope.row.keyword)"
+                                   :disabled="!buttonControl.lexiconrefresh || scope.row.status !== 2"></el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-star-off"
+                                   @click="getschoollabel(scope.row.keyword)"
+                                   :disabled="!buttonControl.lexiconrefresh"></el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-delete"
+                                   @click="onDelete(scope.row)"></el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+
+
+        <!-- 分页 -->
+        <pagination-wrap>
+            <new-pagination
+                    :total="paginationData.total"
+                    :propCurrentPage="paginationData.currentPage"
+                    @initPaginationData="showPaginationData"
+                    @handleSizeChange="showSizeChange"
+                    @handleCurrentChange="showCurrentChange"
+            />
+        </pagination-wrap>
+
+        <!-- dialog标签配置开始 -->
+        <el-dialog title="标签配置" width="500px" :visible.sync="openTagConfiguration" @close="initTagsOperateData">
+
+            <el-dialog
+                    width="250px"
+                    title="添加/编辑标签"
+                    :visible.sync="openEditTagConfiguration"
+                    @close="handleEditTagCancel"
+                    append-to-body>
+                <el-input v-model="tagsOperateData.tagName" size="mini"></el-input>
+                <div slot="footer">
+                    <el-button size="mini" @click="handleEditTagCancel">取 消</el-button>
+                    <el-button size="mini" type="primary" @click="handleEditTagConfirm">确 定</el-button>
+                </div>
+            </el-dialog>
+
+            <el-form ref="tag-form" :model="tagsOperateData" size="mini">
+                <el-form-item>
+                    <el-input v-model="tagsOperateData.searchedTag" prefix-icon="el-icon-search"
+                              placeholder="请输入需要查询的标签" style="width:200px;margin-right: 30px;"></el-input>
+                    <el-button type="warning" plain @click="handleSearchTag">查询</el-button>
+                    <el-button type="success" plain @click="handleAddTag">添加</el-button>
+                </el-form-item>
+            </el-form>
+
+            <el-table
+                    :data="tagsData"
+                    size="mini"
+                    :height="170">
+                <el-table-column prop="name" label="标签"></el-table-column>
+                <el-table-column label="操作">
+                    <template slot-scope="props">
+                        <el-button type="text" plain size="mini" icon="el-icon-edit"
+                                   @click="handleEditTag($event, props.row.id, props.row.name)">编辑
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-delete"
+                                   @click="handleDeleteTagConfirm($event, props.row.id)">删除
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+
+            <div slot="footer">
+                <el-pagination
+                        small
+                        layout="prev, pager, next"
+                        @current-change="changeCurrent"
+                        :pageSize="tagsPaginationData.pageSize"
+                        :total="tagsPaginationData.total">
+                </el-pagination>
+            </div>
+        </el-dialog>
+        <!-- dialog标签配置结束 -->
+
+        <!-- dialog学校标签列表开始 -->
+        <el-dialog title="学校标签列表" width="500px" :visible.sync="openSchoolLabel" @close="cloaseSchoolLabel">
+           <el-tag type="warning" v-show="schooltagsData.length === 0"><i class="el-icon-warning">&nbsp;</i>此关键词暂无标签 </el-tag>
+           <template v-for="(item, index) in schooltagsData">
+               <el-tag style="margin: 0 10px 10px 0;" type="success">{{item.name}}</el-tag>
+           </template>
+        </el-dialog>
+        <!-- dialog学校标签列表结束 -->
+
+        <!-- dialog导入结束 -->
+        <el-dialog
+                width="500px"
+                title="导入关键字"
+                @close="handleImportCancel"
+                :visible.sync="openImport">
+            <el-form ref="form" label-width="100px">
+                <el-form-item>
+                    <el-tag
+                            v-show="keywordOperateData.edit.id == -1"
+                            size="medium"
+                            style="margin-left: 15px;"
+                            type="warning">
+                        <i class="el-icon-info"></i>
+                        {{keywordNum}}
+                    </el-tag>
+                </el-form-item>
+                <el-form-item label="分类：" required>
+                    <el-input class="bg_button" style="width:215px;" v-model="searchData.filterClass.value"
+                              @click.native="handleOpenFilterClass" placeholder="请选择需要过滤的分类" readonly></el-input>
+                </el-form-item>
+                <el-form-item label="普通标签：">
+                    <el-select
+                            v-model="importLabel1.value9"
+                            multiple
+                            filterable
+                            remote
+                            reserve-keyword
+                            placeholder="请输入关键词"
+                            :remote-method="remoteMethodImport1"
+                            :loading="loading">
+                        <el-option
+                                v-for="item in importLabel1.options4"
+                                :key="item.value"
+                                :label="item.label"
+                                :value="item.value">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="学校标签：">
+                    <el-select
+                            v-model="importLabel2.value9"
+                            multiple
+                            filterable
+                            remote
+                            reserve-keyword
+                            placeholder="请输入关键词"
+                            :remote-method="remoteMethodImport2"
+                            :loading="loading">
+                        <el-option
+                                v-for="item in importLabel2.options4"
+                                :key="item.value"
+                                :label="item.label"
+                                :value="item.value">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="文件：">
+                    <el-upload class="upload-demo" action="index.php/lexicon/import" :data="searchData.filterClass"
+                               :before-upload="beforeUpload" :on-success="onSuccess">
+                        <el-button size="small" type="primary" @click="chooseFile">选择文件</el-button>
+                        <div slot="tip" class="el-upload__tip">请先选择分类，再上传模板</div>
+                    </el-upload>
+                </el-form-item>
+            </el-form>
+            <div slot="footer">
+                <el-button size="mini" type="primary" @click="handleImportConfirm">下载模板</el-button>
+                <el-button size="mini" @click="handleImportCancel">取 消</el-button>
+            </div>
+        </el-dialog>
+        <!-- dialog导入结束 -->
+
+        <!-- dialog过滤标签开始 -->
+        <el-dialog
+                width="550px"
+                title="选择过滤标签"
+                @close="handleFilterTagsCancel"
+                :visible.sync="openFilterTags">
+            <el-checkbox :indeterminate="isIndeterminate" v-model="checkAllTags" @change="handleCheckAllTags">全选
+            </el-checkbox>
+            <div style="margin: 20px 0;"></div>
+            <el-checkbox-group v-model="copyFilterTags" @change="initFilterTagsStatus">
+                <el-checkbox v-for="tag in tagsData" :label="tag.id" :key="tag.id">{{tag.name}}</el-checkbox>
+            </el-checkbox-group>
+            <div slot="footer">
+                <el-button size="mini" type="primary" plain @click="handleFilterTagsClear">清 空</el-button>
+                <el-button size="mini" @click="handleFilterTagsCancel">取 消</el-button>
+                <el-button size="mini" type="primary" @click="handleFilterTagsConfirm">确 定</el-button>
+            </div>
+        </el-dialog>
+        <!-- dialog过滤标签结束 -->
+
+        <!-- dialog选择指标开始 -->
+        <el-dialog
+                width="800px"
+                class="index-form-style"
+                title="选择指标"
+                @close="handleFilterIndexCancel"
+                :visible.sync="openFilterIndex">
+
+            <el-form ref="index-form" size="mini">
+                <el-form-item>
+                    <el-checkbox-group v-model="copyFilterIndexArray">
+                        <template v-for="items in copyFilterIndex">
+                            <el-checkbox :label="items.label" :key="items.value">
+                                <span>{{items.label}}</span>
+                                <el-select v-model="items.type" placeholder="请选择类型" size="mini">
+                                    <el-option
+                                            v-for="item in mediaType"
+                                            :key="item"
+                                            :label="item"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                                <el-select v-model="items.character" placeholder="请选择符号">
+                                    <el-option
+                                            v-for="item in characterGather"
+                                            :key="item"
+                                            :label="item"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                                <el-input v-model="items.number" placeholder="请输入数字" style="width: 180px;"></el-input>
+                            </el-checkbox>
+                            <br/>
+                        </template>
+                    </el-checkbox-group>
+                </el-form-item>
+            </el-form>
+
+            <div slot="footer">
+                <el-button size="mini" type="primary" plain @click="handleFilterIndexClear">清 空</el-button>
+                <el-button size="mini" @click="handleFilterIndexCancel">取 消</el-button>
+                <el-button size="mini" type="primary" @click="handleFilterIndexConfirm">确 定</el-button>
+            </div>
+        </el-dialog>
+        <!-- dialog选择指标结束 -->
+
+        <!-- dialog选择分类开始 -->
+        <el-dialog
+                width="835px"
+                title="选择分类"
+                class="class-list-dialog"
+                @close="handleFilterClassCancel"
+                :visible.sync="openFilterClass">
+            <div class="class-list clearfix">
+                <ul class="one">
+                    <li class="all">全行业</li>
+                    <li class="a">0-18岁培训</li>
+                    <li class="b">成人培训</li>
+                    <li class="c">学历文凭</li>
+                </ul>
+                <ul class="two">
+                    <li class="all">搜索类别</li>
+                    <template v-for="item in classList">
+                        <li :key="item.id" :id="item.id" :title="item.value"
+                            :class="[item.value === showClassDetail ? 'selectClassTypeTrue' : 'selectClassTypeFalse']"
+                            @click="handleHoverClass(item.value)">
+                            {{item.value}}
+                            <span class="triggle" v-show="item.value === showClassDetail"></span>
+                        </li>
+                    </template>
+                </ul>
+                <template v-for="items in classList">
+                    <ul class="three" v-show="items.value === showClassDetail">
+                        <li class="all">{{items.value}}</li>
+                        <template v-for="item in items.children">
+                            <li :title="item.value">
+                                <span class="left" :key="item.id" :id="item.id"
+                                      :class="[item.id === copyFilterClass.id ? 'selectClassOneTrue' : 'selectClassOneFalse']"
+                                      @click="handleSelectClass(item)">{{item.value}}</span>
+                                <ul class="right">
+                                    <template v-for="i in item.children">
+                                        <li :title="i.value" :key="i.id" :id="i.id"
+                                            :class="[i.id === copyFilterClass.id ? 'selectClassTwoTrue' : 'selectClassTwoFalse']"
+                                            @click="handleSelectClass(i)">{{i.value}}
+                                        </li>
+                                    </template>
+                                </ul>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+            </div>
+            <div slot="footer">
+                <el-button size="mini" @click="handleFilterClassCancel">取 消</el-button>
+                <el-button size="mini" type="primary" @click="handleFilterClassConfirm">确 定</el-button>
+            </div>
+        </el-dialog>
+        <!-- dialog选择分类结束 -->
+
+        <!-- dialog添加编辑关键词开始 -->
+        <el-dialog
+                width="400px"
+                title="添加/编辑"
+                @close="handleAddKeywordCancel"
+                :visible.sync="openEditKeyword">
+
+            <el-form ref="keywordOperateData" :model="keywordOperateData" :rules="keywordOperateRule" size="small"
+                     label-width="80px">
+                <el-form-item>
+                    <el-tag
+                            v-show="keywordOperateData.edit.id == -1"
+                            size="medium"
+                            style="margin-left: 15px;"
+                            type="warning">
+                        <i class="el-icon-info"></i>
+                        {{keywordNum}}
+                    </el-tag>
+                </el-form-item>
+                <el-form-item prop="keyword" label="关键词：" required>
+                    <el-input v-model="keywordOperateData.keyword"
+                              :readonly="keywordOperateData.edit.id != -1"></el-input>
+                </el-form-item>
+
+                <el-form-item prop="class" label="分类：" :rules="[{ required: true, message: '请选择分类'},]">
+                    <el-input class="bg_button" v-model="keywordOperateData.class" prefix-icon="el-icon-search"
+                              @click.native="handleOpenKeywordFilterClass"></el-input>
+                </el-form-item>
+
+                <!--<el-form-item label="标签：">-->
+                    <!--<el-input class="bg_button" prefix-icon="el-icon-search" @click.native="handleOpenKeywordFilterTags"-->
+                              <!--readonly></el-input>-->
+                <!--</el-form-item>-->
+
+                <el-form-item label="标签类型：" label-width="100px">
+                    <el-radio-group v-model="radio_edit_add">
+                        <el-radio :label="2">普通标签</el-radio>
+                        <el-radio :label="1">学校标签</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+                <el-form-item label="标签：">
+                    <el-select class="bg_button"
+                               v-model="value8"
+                               multiple
+                               filterable
+                               remote
+                               reserve-keyword
+                               placeholder="请输入关键词"
+                               :remote-method="remoteMethod_edit_add"
+                               :loading="loading_search">
+                        <el-option
+                                v-for="item in options3"
+                                :key="item.value"
+                                :label="item.label"
+                                :value="item">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+            </el-form>
+
+            <div slot="footer">
+                <el-button size="mini" @click="handleAddKeywordCancel">取 消</el-button>
+                <el-button size="mini" type="primary" @click="handleAddKeywordConfirm">确 定</el-button>
+            </div>
+        </el-dialog>
+        <!-- dialog添加编辑关键词结束 -->
+
+        <!-- dialog批量编辑关键词开始 -->
+        <el-dialog
+                width="400px"
+                title="批量编辑关键词"
+                @close="handleBatchEditKeywordCancel"
+                :visible.sync="openBatchEditKeyword">
+
+            <el-form size="small" label-width="80px">
+                <el-form-item prop="class" label="分类：">
+                    <el-input class="bg_button" v-model="keywordOperateData.batchEdit.class.value"
+                              prefix-icon="el-icon-search" @click.native="handleOpenKeywordBatchFilterClass"
+                              readonly></el-input>
+                </el-form-item>
+
+                <el-form-item label="标签：">
+                    <el-input class="bg_button" prefix-icon="el-icon-search"
+                              @click.native="handleOpenKeywordBatchFilterTags" readonly></el-input>
+                </el-form-item>
+            </el-form>
+
+            <div slot="footer">
+                <el-button size="mini" @click="handleBatchEditKeywordCancel">取 消</el-button>
+                <el-button size="mini" type="primary" @click="handleBatchEditKeywordConfirm">确 定</el-button>
+            </div>
+        </el-dialog>
+        <!-- dialog批量编辑关键词结束 -->
+
+        <!-- dialog追踪设置开始 -->
+        <dialog-trace-set
+          :show="openTraceSet"
+          :click="openTraceSet"
+          @close="handleTraceSetClose"
+        />
+        <!-- dialog追踪设置结束 -->
+
+
+        <!-- dialog追踪对比开始 -->
+        <dialog-trace-compare
+          :show="openTraceCompare"
+          :click="openTraceCompare"
+          @close="handleTraceCompareClose"
+        />
+        <!-- dialog追踪对比结束 -->
+
+        <!-- dialog操作-趋势开始 -->
+        <dialog-trend
+          :show="openTrendDialog"
+          :keyword="keywordToTrend"
+          @close="handleTrendClose"
+          :click="openTrendDialog"
+        />
+        <!-- dialog操作-趋势结束 -->
+
+        <!-- dialog选择评价开始 -->
+        <dialog-assess
+          :show="openFilterAssess"
+          @close="handleFilterAssessClose"
+          @onSubmit="handleFilterAssessonSubmit"
+        />
+        <!-- dialog选择评价结束 -->
+
+    </page-wrap>
+</template>
+
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import paginationWrap from './../../components/pageStructure/paginationWrap.vue'
+    import PageTitle from './../../components/pageStructure/PageTitle.vue'
+    import NewPagination from './../../components/base/NewPagination.vue'
+
+    import DialogTraceSet from './lexicon/DialogTraceSet.vue'
+    import DialogTrend from './lexicon/DialogTrend.vue'
+    import DialogAssess from './lexicon/DialogAssess.vue'
+    import DialogTraceCompare from './lexicon/DialogTraceCompare.vue'
+
+    import {mapState, mapMutations} from 'vuex'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, TableWrap, paginationWrap, NewPagination, PageTitle, DialogTraceSet, DialogTrend, DialogAssess, DialogTraceCompare
+        },
+        data() {
+            return {
+                keywordNum: '今天还需添加0个关键词',
+                searchData: {
+                    keyword: '',
+                    assess: [],
+                    adder: "",
+                    dp_user_id: [],
+                    dateTime: [],
+                    value9: [],
+                    filterClass: [],
+                    filterTags: [],
+                    filterIndex: [
+                        {
+                            check: false,
+                            value: 'searchVolume',
+                            label: '搜索量',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'baiduRank',
+                            label: '百度排名',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'baiduIndex',
+                            label: '百度指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'newsIndex',
+                            label: '新闻指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'courseIndex',
+                            label: '课程指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'schoolIndex',
+                            label: '学校指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'knowIndex',
+                            label: '知道指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        }
+                    ]
+                },
+                dp_user_name: [],
+                importLabel1:{
+                    options4: [],
+                    value9: [],
+                    list: [],
+                    loading: false,
+                    states: [""]
+                },
+                importLabel2:{
+                    options4: [],
+                    value9: [],
+                    list: [],
+                    loading: false,
+                    states: [""]
+                },
+                tagsOperateData: {
+                    searchedTagName: '',
+                    tagId: -1,
+                    tagName: ''
+                },
+                tagsData: [],
+                schooltagsData: [],
+                keywordOperateData: {
+                    keyword: '',
+                    class: '',
+                    add: {
+                        id: 0,
+                        keyword: '',
+                        class: [],
+                        tags: []
+                    },
+                    edit: {
+                        id: -1,
+                        keyword: '',
+                        class: [],
+                        tags: []
+                    },
+                    batchEdit: {
+                        id: [],
+                        class: [],
+                        tags: []
+                    },
+                    import: {
+                        class: []
+                    }
+                },
+                keywordOperateRule: {
+                    keyword: [
+                        {required: true, message: '请输入关键词', trigger: 'blur'}
+                    ],
+                    class: [
+                        {required: true, message: '请选择分类', trigger: 'change'}
+                    ]
+                },
+                copyOperateTags: [],
+                tableData: [],
+                tagsPaginationData: {
+                    total: 0,
+                    pageSize: 50,
+                },
+                paginationData: {
+                    total: 0
+                },
+                assessOptions: [
+                    {
+                        value: 1,
+                        label: '完美推广'
+                    },
+                    {
+                        value: 2,
+                        label: '一步之遥'
+                    },
+                    {
+                        value: 3,
+                        label: '初见成效'
+                    },
+                    {
+                        value: 4,
+                        label: '无效推广'
+                    },
+                    {
+                        value: 5,
+                        label: '毫无推广'
+                    },
+                ],
+                openTagConfiguration: false,
+                openSchoolLabel: false,
+                openEditTagConfiguration: false,
+                openEditKeyword: false,
+                openFilterClass: false,
+                openImport: false,
+                openFilterTags: false,
+                openFilterIndex: false,
+                openTraceSet: false,
+                openTraceCompare: false,
+                openTrendDialog: false,
+                keywordToTrend: '',
+                openFilterAssess: false,
+                isIndeterminate: false,
+                checkAllTags: false,
+                showTableColTags: false,
+                openBatchEditKeyword: false,
+                loading: false,
+                isTrue: true,
+                fileList: [],
+                oldTagName: '',
+                copyFilterTags: [],
+                copyFilterClass: [],
+                copyFilterIndex: [],
+                copyFilterIndexArray: [],
+                filterIndexArray: [],
+                characterGather: ['>', '<', '>=', '<=', '='],
+                searchType: ['ALL', 'PC', 'M'],
+                mediaType: ['---', 'PC端', 'M端'],
+                showClassDetail: '',
+                classList: [],
+                batchSelectSingleRowData: {},
+                buttonControl: {},
+                moreTableColsNumber: 16,
+                showMoreTableCols: false,
+                hiddenTableColsBool: {
+                    kws_count_pc: false,
+                    kws_count_m: false,
+                    baidu_rank_pc: false,
+                    baidu_rank_m: false,
+                    trace_rank_pc: false,
+                    trace_rank_m: false,
+                    baidu_index_pc: false,
+                    baidu_index_m: false,
+                    news_index: false,
+                    mnews_index: false,
+                    course_index: false,
+                    mcourse_index: false,
+                    school_index: false,
+                    mschool_index: false,
+                    zhidao_index: false,
+                    mzhidao_index: false
+                },
+                radio_group: 1,
+                radio_edit_add: 1,
+                value8: [],
+                options4: [],
+                options3: [],
+                list: [],
+                loading_search: false,
+                states: [],
+                hiddenTableCols: []
+            }
+        },
+        mounted() {
+//            this.initClassList()
+            // let that = this
+            // document.onclick = function (e) {
+            //   if (e.target.innerText !== '更多展示列') {
+            //     that.showMoreTableCols = false
+            //   }
+            // }
+
+            this.initHiddenCols()
+//            this.initClassList()
+//            this.initClassList()
+            this.initSearchData()
+            this.initTagsOperateData()
+//            this.initTagsData()
+            this.showClassDetail = '电脑与IT'
+            this.copyFilterTags = this.searchData.filterTags
+
+            this.copyFilterIndex = JSON.parse(JSON.stringify(this.searchData.filterIndex))  // 创建一个副本， JS中数组和Object是引用传递
+            this.switchFilterIndexToArray()
+            this.copyFilterIndexArray = this.filterIndexArray
+            this.list = this.states.map(item => {
+                return { value: item, label: item };
+            });
+            this.importLabel1.list = this.importLabel1.states.map(item => {
+                return { value: item, label: item };
+            });
+            this.importLabel2.list = this.importLabel2.states.map(item => {
+                return { value: item, label: item };
+            });
+            this.initLexiconData()
+//            this.onSubmit()
+        },
+        computed: {
+            ...mapState('navTabs', [
+                'keyword_to_lexicon', 'tabTableHeight'
+            ])
+        },
+        watch: {
+            keyword_to_lexicon () {
+                this.initSearchData()
+            }
+        },
+        methods: {
+            initLexiconData() {
+                let that = this
+                this.$ajax.post('/lexicon/init', {
+                    tagsOperateData: that.tagsOperateData,
+                    paginate: that.tagsPaginationData,
+                    searchData:that.searchData
+                })
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            //setting/list
+                            that.tagsData = res.data[0].tagsData
+                            that.tagsPaginationData.total = res.data[0].tagsTotal
+
+                            //categories/init
+                            that.classList = res.data[1].classList
+
+                            //index/list
+                            that.tableData = res.data[2].tableData
+                            that.paginationData.total = res.data[2].total
+                            that.buttonControl = res.data[2].buttonControl
+
+                            //index/dp_user_name
+                            that.dp_user_name = res.data[3]
+                        }
+                    })
+                    .catch(function (err) {
+                    })
+            },
+            initHiddenCols () {
+              this.hiddenTableCols = localStorage.getItem('lexicon_hiddenTableCols') === null ? [] : localStorage.getItem('lexicon_hiddenTableCols').split(',')
+              for (let key in this.hiddenTableColsBool) {
+                if (this.hiddenTableCols.indexOf(key) > -1) {
+                  this.hiddenTableColsBool[key] = true
+                } else {
+                  this.hiddenTableColsBool[key] = false
+                }
+              }
+            },
+            chooseFile () {
+                this.searchData.filterClass['label1']=this.importLabel1.value9
+                this.searchData.filterClass['label2']=this.importLabel2.value9
+            },
+            handleTraceSetClose () {
+                this.openTraceSet = false
+            },
+            handleTraceCompareClose () {
+              this.openTraceCompare = false
+            },
+            handleTrendClose () {
+                this.openTrendDialog = false
+            },
+            initSearchData() {
+                this.searchData = {
+                    keyword: '',
+                    assess: [],
+                    adder: this.keyword_to_lexicon.adder !== '' ? this.keyword_to_lexicon.adder : "",
+                    value9: [],
+                    dateTime: this.keyword_to_lexicon.dateTime !== '' ? this.keyword_to_lexicon.dateTime : [],
+                    filterClass: [],
+                    filterTags: [],
+                    filterIndex: [
+                        {
+                            check: false,
+                            value: 'searchVolume',
+                            label: '搜索量',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'baiduRank',
+                            label: '百度排名',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'baiduIndex',
+                            label: '百度指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'newsIndex',
+                            label: '新闻指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'courseIndex',
+                            label: '课程指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'schoolIndex',
+                            label: '学校指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        },
+                        {
+                            check: false,
+                            value: 'knowIndex',
+                            label: '知道指数',
+                            character: '',
+                            number: '',
+                            type: ''
+                        }
+                    ]
+                }
+                this.copyFilterClass = []
+                this.copyFilterTags = []
+                this.copyFilterIndex = this.searchData.filterIndex
+                this.copyFilterIndexArray = []
+                this.initFilterTagsStatus()
+            },
+            initTagsOperateData() {
+                this.tagsOperateData = {
+                    searchedTagName: '',
+                    tagId: -1,
+                    tagName: ''
+                }
+            },
+            cloaseSchoolLabel() {
+                this.openSchoolLabel = false
+            },
+            //标签配置预加载
+            initTagsData(action) {
+                let that = this
+                if (action !== 'changeCurrentPage') {
+                    that.tagsPaginationData.currentPage = 1
+                }
+                this.$ajax.post('/lexicon/setting/list', {
+                    tagsOperateData: that.tagsOperateData,
+                    paginate: that.tagsPaginationData
+                })
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.tagsData = res.data.tagsData
+                            that.tagsPaginationData.total = res.data.tagsTotal
+                        }
+                    })
+                    .catch(function (err) {
+                    })
+            },
+            refresh(kw) {
+                let that = this
+                this.$ajax.get('/lexicon/refresh?kw=' + kw).then(function (res) {
+                    that.$message({
+                        type: 'success',
+                        message: "已加入更新队列，请等待更新"
+                    })
+                    that.onSubmit()
+                })
+            },
+            handleSearchTag() {
+                this.initTagsData()
+            },
+            handleAddTag() {
+                this.openEditTagConfiguration = true
+                this.tagsOperateData.tagId = 0
+            },
+            handleEditTag(e, id, name) {
+                this.openEditTagConfiguration = true
+                this.tagsOperateData.tagId = id
+                this.tagsOperateData.tagOldName = name
+                this.tagsOperateData.tagName = name
+            },
+            handleEditTagCancel() {
+                this.openEditTagConfiguration = false
+                this.tagsOperateData.tagId = -1
+                this.tagsOperateData.tagName = ''
+            },
+            //标签配置添加修改
+            handleImportKeywordConfirm() {
+                this.openImport = false
+            },
+            handleEditTagConfirm() {
+                let obj = {}
+                if (this.tagsOperateData.tagId === 0) {
+                    obj = {
+                        action: 'add',
+                        id: 0,
+                        name: this.tagsOperateData.tagName,
+                        oldname: this.oldTagName
+                    }
+                } else {
+                    obj = {
+                        action: 'edit',
+                        id: this.tagsOperateData.tagId,
+                        name: this.tagsOperateData.tagName,
+                        oldname: this.oldTagName
+                    }
+                }
+                let that = this
+                this.$ajax.post('/lexicon/setting/' + obj.action, {id: obj.id, name: obj.name, oldname: obj.oldname})
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.openEditTagConfiguration = false
+                            that.tagsOperateData.tagId = -1
+                            that.tagsOperateData.tagName = ''
+                            that.$message({
+                                type: res.data.type === true ? 'success' : 'warning',
+                                message: res.data.info
+                            })
+                        }
+                    })
+                    .catch(function (err) {
+                    })
+                that.initTagsData()
+            },
+            //标签配置删除
+            handleDeleteTagConfirm(e, tagId) {
+                this.$confirm('确认删除吗?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    let obj = {
+                        action: 'delete',
+                        id: tagId,
+                        name: this.tagsOperateData.tagName
+                    }
+                    let that = this
+                    this.$ajax.post('/lexicon/setting/' + obj.action, {id: obj.id, name: obj.name})
+                        .then(function (res) {
+                            if (res.data !== undefined) {
+                                that.openEditTagConfiguration = false
+                                that.tagsOperateData.tagId = -1
+                                that.tagsOperateData.tagName = ''
+                                that.$message({
+                                    type: res.data.type === true ? 'success' : 'warning',
+                                    message: res.data.info
+                                })
+                            }
+                            that.initTagsData()
+                        })
+                        .catch(function (err) {
+                        })
+                }).catch(() => {
+                    this.$message({
+                        type: 'info',
+                        message: '已取消删除'
+                    })
+                })
+            },
+            handleCheckAllTags(bool) {
+                this.copyFilterTags = bool ? this.tagsData.map(a => a.id) : [];
+                this.isIndeterminate = false
+            },
+            initFilterTagsStatus() {
+                let checkedCount = this.copyFilterTags.length
+                this.checkAllTags = checkedCount === this.tagsData.length && checkedCount !== 0
+                this.isIndeterminate = checkedCount > 0 && checkedCount < this.tagsData.length
+            },
+            handleOpenFilterTags() {
+                this.openFilterTags = true
+                this.copyFilterTags = this.searchData.filterTags
+            },
+            handleOpenKeywordFilterTags() {
+                this.openFilterTags = true
+                if (this.keywordOperateData.edit.id === -1) {
+                    this.copyFilterTags = this.keywordOperateData.add.tags
+                } else {
+                    this.copyFilterTags = this.keywordOperateData.edit.tags
+                }
+                this.initFilterTagsStatus()
+            },
+            handleOpenKeywordBatchFilterTags() {
+                this.openFilterTags = true
+                this.copyFilterTags = this.keywordOperateData.batchEdit.tags
+                this.initFilterTagsStatus()
+            },
+            handleFilterTagsCancel() {
+                this.openFilterTags = false
+                this.copyFilterTags = this.searchData.filterTags
+                this.initFilterTagsStatus()
+            },
+            handleImportKeywordCancel() {
+                this.openImport = false
+            },
+            handleImportCancel() {
+                this.openImport = false
+            },
+            handleImportConfirm() {
+                window.open('outside/关键词.csv')
+            },
+            beforeUpload(file, fileList) {
+                let ext = file.name.split('.').pop();
+                if (this.searchData.filterClass.id === undefined) {
+                    this.$message('请选择分类！')
+                    return false
+                }
+                if (ext !== 'csv' && ext !== 'CSV') {
+                    this.$message('请选择CSV模板文件上传！')
+                    return false
+                }
+            },
+            onSuccess(response, file, fileList) {
+                let type = 'success'
+                if (response === undefined || response.type === false) {
+                    type = 'error'
+                } else {
+                    this.openImport = false;
+                }
+                this.$message({
+                    message: response.info,
+                    type: type
+                });
+            },
+            handleOpenImportKeyword() {
+                this.openImport = true
+                this.copyFilterClass = this.keywordOperateData.import.class
+            },
+            handleRemove(file, fileList) {
+            },
+            handlePreview(file) {
+            },
+            handleExceed(files, fileList) {
+                this.$message.warning(`当前限制选择 3 个文件，本次选择了 ${files.length} 个文件，共选择了 ${files.length + fileList.length} 个文件`);
+            },
+            beforeRemove(file, fileList) {
+                return this.$confirm(`确定移除 ${ file.name }？`);
+            },
+            handleFilterTagsClear() {
+                this.copyFilterTags = []
+                this.initFilterTagsStatus()
+            },
+            handleFilterTagsConfirm() {
+                this.openFilterTags = false
+                if (this.openEditKeyword) {
+                    if (this.keywordOperateData.edit.id === -1) {
+                        this.keywordOperateData.add.tags = this.copyFilterTags
+                    } else {
+                        this.keywordOperateData.edit.tags = this.copyFilterTags
+                    }
+                } else if (this.openBatchEditKeyword) {
+                    this.keywordOperateData.batchEdit.tags = this.copyFilterTags
+                } else {
+                    this.searchData.filterTags = this.copyFilterTags
+                }
+                this.initFilterTagsStatus()
+            },
+            switchFilterIndexToArray() {
+                this.filterIndexArray = this.searchData.filterIndex.filter(f => f.check === true).map(m => m.label)
+            },
+            handleFilterIndexClear() {
+                this.copyFilterIndex = [
+                    {
+                        check: false,
+                        value: 'searchVolume',
+                        label: '搜索量',
+                        character: '',
+                        number: '',
+                        type: 'ALL'
+                    },
+                    {
+                        check: false,
+                        value: 'baiduRank',
+                        label: '百度排名',
+                        character: '',
+                        number: '',
+                        type: 'ALL'
+                    },
+                    {
+                        check: false,
+                        value: 'baiduIndex',
+                        label: '百度指数',
+                        character: '',
+                        number: '',
+                        type: 'ALL'
+                    },
+                    {
+                        check: false,
+                        value: 'newsIndex',
+                        label: '新闻指数',
+                        character: '',
+                        number: '',
+                        type: 'ALL'
+                    },
+                    {
+                        check: false,
+                        value: 'courseIndex',
+                        label: '课程指数',
+                        character: '',
+                        number: '',
+                        type: 'ALL'
+                    },
+                    {
+                        check: false,
+                        value: 'schoolIndex',
+                        label: '学校指数',
+                        character: '',
+                        number: '',
+                        type: 'ALL'
+                    },
+                    {
+                        check: false,
+                        value: 'knowIndex',
+                        label: '知道指数',
+                        character: '',
+                        number: '',
+                        type: 'ALL'
+                    }
+                ]
+                this.copyFilterIndexArray = this.copyFilterIndex.filter(f => f.check === true).map(m => m.label)
+            },
+            handleFilterIndexCancel() {
+                this.openFilterIndex = false
+                this.copyFilterIndex = JSON.parse(JSON.stringify(this.searchData.filterIndex))
+                this.switchFilterIndexToArray()
+                this.copyFilterIndexArray = this.filterIndexArray
+            },
+            handleFilterIndexConfirm() {
+                this.openFilterIndex = false
+                for (let i = 0; i < this.copyFilterIndex.length; i++) {
+                    if (this.copyFilterIndexArray.indexOf(this.copyFilterIndex[i].label) > -1) {
+                        this.copyFilterIndex[i].check = true
+                    } else {
+                        this.copyFilterIndex[i].check = false
+                    }
+                }
+                this.searchData.filterIndex = JSON.parse(JSON.stringify(this.copyFilterIndex))
+                this.filterIndexArray = this.copyFilterIndexArray
+            },
+            handleHoverClass(val) {
+                this.showClassDetail = val
+            },
+            getSiblingsNodes(elem) {
+                var arr = []
+                var child = elem.parentNode.children
+                for (var i = 0, pl = child.length; i < pl; i++) {
+                    if (child[i] !== elem) arr.push(child[i])
+                }
+                return arr
+            },
+            handleSelectClass(val) {
+                this.copyFilterClass = val
+            },
+            initClassList() {
+                let that = this
+                this.$ajax.get('/lexicon/categories/init')
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.classList = res.data.classList
+                        }
+                    })
+                    .catch(function (err) {
+                    })
+            },
+            handleOpenFilterAssess() {
+                this.openFilterAssess = true
+            },
+            handleFilterAssessClose () {
+                this.openFilterAssess = false
+            },
+            handleFilterAssessonSubmit (val) {
+                this.searchData.assess = val
+            },
+            handleOpenFilterClass() {
+                this.openFilterClass = true
+                this.copyFilterClass = this.searchData.filterClass
+            },
+            handleOpenKeywordFilterClass() {
+                this.openFilterClass = true
+                if (this.keywordOperateData.edit.id === -1) {
+                    this.copyFilterClass = this.keywordOperateData.add.class
+                } else {
+                    this.copyFilterClass = this.keywordOperateData.edit.class
+                }
+            },
+            handleOpenImportKeywordFilterClass() {
+                this.openFilterClass = true
+                this.copyFilterClass = this.keywordOperateData.import.class
+            },
+            handleOpenKeywordBatchFilterClass() {
+                this.openFilterClass = true
+                this.copyFilterClass = this.keywordOperateData.batchEdit.class
+            },
+            handleFilterClassCancel() {
+                this.openFilterClass = false
+                this.copyFilterClass = this.searchData.filterClass
+            },
+            handleFilterClassConfirm() {
+                this.openFilterClass = false
+                if (this.openEditKeyword) {
+                    if (this.keywordOperateData.edit.id === -1) {
+                        this.keywordOperateData.add.class = this.copyFilterClass
+                    } else {
+                        this.keywordOperateData.edit.class = this.copyFilterClass
+                    }
+                    this.keywordOperateData.class = this.copyFilterClass.value
+                } else if (this.openBatchEditKeyword) {
+                    this.keywordOperateData.batchEdit.class = this.copyFilterClass
+                } else {
+                    this.searchData.filterClass = this.copyFilterClass
+                }
+            },
+            handleOpenAddKeyword() {
+                this.openEditKeyword = true
+
+                this.keywordOperateData.keyword = this.keywordOperateData.add.keyword
+                this.keywordOperateData.class = this.keywordOperateData.add.class.value
+                this.copyOperateTags = this.keywordOperateData.add.tags
+
+                this.copyFilterClass = this.keywordOperateData.add.class
+                this.copyFiltertags = this.keywordOperateData.add.tags
+            },
+            handleOpenEditKeyword(row) {
+                this.openEditKeyword = true
+                this.keywordOperateData.edit.id = row.kw_id
+                this.keywordOperateData.edit.keyword = row.keyword
+                this.keywordOperateData.edit.class = {
+                    id: row.c_id,
+                    value: row.catename
+                }
+                // 获取tags
+                this.keywordOperateData.edit.tags = row.l_id
+                this.keywordOperateData.keyword = this.keywordOperateData.edit.keyword
+                this.keywordOperateData.class = this.keywordOperateData.edit.class.value
+                this.copyOperateTags = this.keywordOperateData.edit.tags
+
+                this.copyFilterClass = this.keywordOperateData.edit.class
+                this.copyFiltertags = this.keywordOperateData.edit.tags
+            },
+            onDelete(row) {
+                let that = this
+                this.$confirm('此操作将永久删除该条记录, 是否继续?', '提示', {
+                   confirmButtonText: '确定',
+                   cancelButtonText: '取消',
+                   type: 'warning'
+                 }).then(() => {
+                   this.$ajax.post('/lexicon/keywords/delete', {id: row.kw_id,keyword: row.keyword})
+                       .then(function (res) {
+                           if (res.data.type) {
+                               that.openEditKeyword = false
+                               that.onSubmit()
+                               that.$message({
+                                   type: 'success',
+                                   message: res.data.info
+                               })
+                           } else {
+                               that.$message({type: 'error', message: res.data.info})
+                           }
+                       })
+                       .catch(function (err) {
+                           that.$message('网络错误！请联系管理员')
+                           that.loading = false
+                       })
+                 }).catch(() => {
+                   this.$message({
+                     type: 'info',
+                     message: '已取消删除'
+                   });
+                 });
+
+            },
+            handleOpenTrend(keyword) {
+                this.openTrendDialog = true
+                this.keywordToTrend = keyword
+            },
+            remoteMethodImport1(query) {
+                let that = this
+                if (query !== '') {
+                    that.importLabel1.loading = true;
+                    this.$ajax.post('lexicon/index/query', {query: query,type:2})
+                        .then(function (res) {
+                            that.importLabel1.loading = false
+                            that.importLabel1.options4 = res.data
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                } else {
+                    that.importLabel1.options4 = [];
+                }
+            },
+            remoteMethodImport2(query) {
+                let that = this
+                if (query !== '') {
+                    that.importLabel2.loading = true;
+                    this.$ajax.post('lexicon/index/importquery', {query: query})
+                        .then(function (res) {
+                            that.importLabel2.loading = false
+                            that.importLabel2.options4 = res.data
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                } else {
+                    that.importLabel2.options4 = [];
+                }
+            },
+            handleOpenEditKeywordBatch() {
+                if (this.keywordOperateData.batchEdit.id.length === 0) {
+                    this.$message('请选择要批量编辑的关键词')
+                } else if (this.keywordOperateData.batchEdit.id.length === 1) {
+                    this.handleOpenEditKeyword(this.batchSelectSingleRowData)
+                } else {
+                    this.openBatchEditKeyword = true
+                    this.copyFilterClass = this.keywordOperateData.batchEdit.class
+                }
+            },
+            selectTableRow(selection, row) {
+                this.keywordOperateData.batchEdit.id = selection.map(m => m.kw_id)
+                this.batchSelectSingleRowData = {
+                    kw_id: row.kw_id,
+                    keyword: row.keyword,
+                    c_id: row.c_id,
+                    catename: row.catename
+                }
+            },
+            selectTableAllRow(selection) {
+                this.keywordOperateData.batchEdit.id = selection.map(m => m.kw_id)
+            },
+            handleAddKeywordCancel() {
+                this.keywordOperateData.add = {
+                    add: 0,
+                    keyword: '',
+                    class: '',
+                    tags: []
+                }
+                this.keywordOperateData.edit = {
+                    id: -1,
+                    keyword: '',
+                    class: '',
+                    tags: []
+                }
+                this.openEditKeyword = false
+                this.value8 = []
+                this.$refs['keywordOperateData'].resetFields()
+            },
+            handleAddKeywordConfirm() {
+                this.$refs['keywordOperateData'].validate((valid) => {
+                    if (valid) {
+                        let obj = {}
+                        if (this.keywordOperateData.edit.id === -1) {
+                            obj = {
+                                action: 'add',
+                                id: 0,
+                                keyword: this.keywordOperateData.keyword,
+                                class: this.keywordOperateData.add.class.id,
+                                tags: this.value8
+                            }
+                        } else {
+                            obj = {
+                                action: 'edit',
+                                id: this.keywordOperateData.edit.id,
+                                keyword: this.keywordOperateData.keyword,
+                                class: this.keywordOperateData.edit.class.id,
+                                tags: this.value8
+                            }
+                        }
+                        let that = this
+                        this.$ajax.post('/lexicon/keywords/' + obj.action, {
+                            id: obj.id,
+                            keyword: obj.keyword,
+                            class: obj.class,
+                            tags: obj.tags
+                        })
+                            .then(function (res) {
+                                if (res.data.type) {
+                                    that.openEditKeyword = false
+                                    that.keywordOperateData.edit.id = -1
+                                    that.onSubmit()
+                                    that.$message({
+                                        type: 'success',
+                                        message: res.data.info
+                                    })
+                                } else {
+                                    that.$message({type: 'error', message: res.data.info})
+                                }
+                            })
+                            .catch(function (err) {
+                                that.$message('网络错误！请联系管理员')
+                                that.loading = false
+                            })
+                        this.openEditKeyword = false
+                        this.$refs['keywordOperateData'].resetFields()
+                    } else {
+                        return false
+                    }
+                })
+            },
+            handleBatchEditKeywordCancel() {
+                this.openBatchEditKeyword = false
+                this.keywordOperateData.batchEdit.class = ''
+                this.keywordOperateData.batchEdit.tags = []
+            },
+            handleBatchEditKeywordConfirm() {
+                this.openBatchEditKeyword = false
+                let obj = {
+                    id: this.keywordOperateData.batchEdit.id,
+                    class: this.keywordOperateData.batchEdit.class,
+                    tags: this.keywordOperateData.batchEdit.tags
+                }
+                this.keywordOperateData.batchEdit.class = ''
+                this.keywordOperateData.batchEdit.tags = []
+
+                this.$confirm('确认编辑所有关键词的分类和标签吗？（此操作不可恢复，请慎重）', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    let that = this
+                    this.$ajax.post('lexicon/keywords/editbench', {data: obj})
+                        .then(function (res) {
+                            if (res.data.type) {
+                                that.$message({
+                                    type: 'success',
+                                    message: res.data.info
+                                })
+                                that.onSubmit()
+                            }
+                            that.loading = false
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                }).catch(() => {
+                    this.$message({
+                        type: 'info',
+                        message: '已取消修改'
+                    })
+                })
+            },
+            onSubmit(action = '') {
+                let that = this
+                if (action !== 'changeCurrentPage') {
+                    that.paginationData.currentPage = 1
+                }
+                if (action !== 'changeSort' && action !== 'changeCurrentPage') {
+//                  that.$refs.table.clearSort()
+//                    that.paginationData.prop = 'add_time'
+//                    that.paginationData.order = "descending"
+                }
+                that.loading = true
+                this.$ajax.post('lexicon/index/list', {search: that.searchData, paginate: that.paginationData})
+                    .then(function (res) {
+                        if (res.data.tableData !== undefined) {
+                            that.tableData = res.data.tableData
+                            that.paginationData.total = res.data.total
+                            that.buttonControl = res.data.buttonControl
+                            if (res.data.keywordNum > -1) {
+                                that.keywordNum = '今天还需要添加' + res.data.keywordNum + '个关键词'
+                            } else {
+                                that.keywordNum = '关键词添加数不受限制';
+                            }
+                        } else {
+                            that.$message(res.data)
+                        }
+                        that.loading = false
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+            },
+            onClear() {
+                this.initSearchData()
+            },
+            tableSortChange(val) {
+                this.paginationData.prop = val.prop
+                this.paginationData.order = val.order
+                this.onSubmit('changeSort')
+            },
+            showPaginationData() {
+
+            },
+            showSizeChange(val) {
+                this.paginationData.pageSize = val
+                this.onSubmit()
+            },
+            showCurrentChange(val) {
+                this.paginationData.currentPage = val
+                this.onSubmit('changeCurrentPage')
+            },
+            changeKeyWord(keywork) {
+                this.initSearchData()
+                this.searchData.keyword = keywork
+                this.onSubmit()
+            },
+            changeCurrent(val) {
+                this.tagsPaginationData.currentPage = val
+                this.initTagsData("changeCurrentPage")
+            },
+            getTagsInfo() {
+                this.openTagConfiguration = true
+            },
+            getschoollabel(keyword) {
+                let that = this
+                that.loading_search = true;
+                this.$ajax.post('lexicon/keywords/schoollabel', {keyword: keyword})
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.schooltagsData = res.data
+                            that.openSchoolLabel = true
+                        }
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+            },
+            handleMoreTableCols() {
+                this.showMoreTableCols = !this.showMoreTableCols
+                this.moreTableColsNumber = ''
+            },
+            handleChange(value) {
+            },
+            remoteMethod(query) {
+                let that = this
+                if (query !== '') {
+                    that.loading_search = true;
+                    this.$ajax.post('lexicon/index/query', {query: query,type:that.radio_group})
+                        .then(function (res) {
+                            if (res.data !== undefined) {
+                                setTimeout(() => {
+                                    that.loading_search = false
+                                    that.options4 = res.data
+                                }, 200);
+                            }
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                } else {
+                    that.options4 = [];
+                }
+            },
+            remoteMethod_edit_add(query) {
+                let that = this
+                if (query !== '') {
+                    that.loading_search = true;
+                    this.$ajax.post('lexicon/index/query', {query: query,type:that.radio_edit_add})
+                        .then(function (res) {
+                            if (res.data !== undefined) {
+                                setTimeout(() => {
+                                    that.loading_search = false
+                                    that.options3 = res.data
+                                }, 200);
+                            }
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                } else {
+                    that.options3 = [];
+                }
+            },
+            selectHiddenTableCols(val) {
+              localStorage.setItem('lexicon_hiddenTableCols', val)
+              for(let key in this.hiddenTableColsBool) {
+                if (val.indexOf(key) > -1) {
+                  this.hiddenTableColsBool[key] = true
+                } else {
+                  this.hiddenTableColsBool[key] = false
+                }
+                }
+            },
+            ...mapMutations('navTabs', ['addTab', 'func_keyword_to_observe']),
+            clickKeyword(val) {
+                let obj = {
+                    keyword: val
+                }
+                this.addTab({name: 'keywords/Observe', title: '指数观察'})
+                this.func_keyword_to_observe(obj)
+            }
+        }
+    }
+</script>
+
+<style scoped>
+    @import "./../../assets/css/page/lexicon.css";
+</style>

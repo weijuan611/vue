@@ -1,0 +1,49 @@
+<?php
+
+namespace app\script\command;
+
+use app\script\model\Spider;
+use think\console\Command;
+use think\console\Input;
+use think\console\Output;
+use think\console\input\Argument;
+
+class Keyword extends Command
+{
+    protected $bd = 0;// 是否是厚学统计，0：百度 1：厚学
+
+    /**
+     * 面板
+     */
+    protected function configure()
+    {
+        $this->setName('keyword')->setDescription('baidu/houxue keyword');
+        $this->addOption('baidu', 'b', Argument::OPTIONAL, 'mode: (0.baidu rank 1.houxue stat)', $this->bd);
+    }
+
+    /**
+     * 入口
+     * @param Input $input
+     * @param Output $output
+     */
+    protected function execute(Input $input, Output $output)
+    {
+        ini_set('max_execution_time', '0');//无超时
+        $time = time();
+        $this->output->writeln(date('Y-m-d H:i:s'));
+        // 是计算百度排名还是厚学统计
+        $bd = $input->getOption('baidu');
+        if ($bd == 0) {
+            $this->output->writeln('百度排名任务初始化');
+            (new Spider())->setMode(0)->start();//百度指数+厚学关键词,供定时脚本用
+            $this->output->writeln('百度排名任务结束');
+        } else {
+            $this->output->writeln('厚学统计任务初始化');
+            (new Spider())->setMode(1)->start();//厚学
+            $this->output->writeln('厚学统计任务结束');
+        }
+        $time = time() - $time;
+        $this->output->writeln("all steps end!" . round($time / 60) . ':' . round($time / 60));
+    }
+
+}

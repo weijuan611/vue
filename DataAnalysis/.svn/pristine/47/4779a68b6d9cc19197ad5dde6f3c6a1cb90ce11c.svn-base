@@ -1,0 +1,45 @@
+<template>
+  <div class="paginationWrap">
+    <el-pagination
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="paginationData.currentPage"
+            :page-size="paginationData.pageSize"
+            :total="paginationData.total">
+    </el-pagination>
+  </div>
+</template>
+<script>
+    export default {
+        props: {
+            data:{
+                type:Object,
+                default:function () {
+                    return {currentPage:1,pageSize:50,total:0}
+                }
+            }
+        },
+        watch:{
+          data:function (data,old) {
+              this.paginationData=data
+          }
+        },
+        data() {
+            return {
+                paginationData:this.data
+            }
+        },
+        methods: {
+            handleSizeChange (val) {
+                this.paginationData.currentPage = 1
+                this.paginationData.pageSize = val
+                this.$emit('change', this.paginationData)
+            },
+            handleCurrentChange (val) {
+                this.paginationData.currentPage = val
+                this.$emit('change', val)
+            }
+        }
+    }
+</script>

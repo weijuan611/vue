@@ -1,0 +1,32 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2018/3/10
+ * Time: 13:55
+ */
+namespace app\index\controller\material;
+
+use app\index\controller\Base;
+use app\index\model\MDenyWords;
+
+class Denywords extends Base
+{
+    public function init()
+    {
+        $model = new MDenyWords();
+        $data = $model->getlist();
+        $data['buttonControl'] = buttonDisable($this->permission,$this->route['material_denywords']);
+        return json($data);
+    }
+    public function material_changetype()
+    {
+        $model = new MDenyWords();
+        return json($model->material_changetype());
+    }
+    public function material_addDenyword()
+    {
+        $model = new MDenyWords();
+        return json($model->material_addDenyword());
+    }
+}

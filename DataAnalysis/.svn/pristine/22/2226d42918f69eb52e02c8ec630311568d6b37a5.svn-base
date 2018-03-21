@@ -1,0 +1,38 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2018/3/13
+ * Time: 17:05
+ */
+namespace app\index\controller\material;
+
+use app\index\controller\Base;
+use app\index\model\MArticle;
+
+class Article extends Base
+{
+    public function init()
+    {
+        $model = new MArticle();
+        $data = $model->getlist();
+        $data['buttonControl'] = buttonDisable($this->permission,$this->route['material_article']);
+        return json($data);
+    }
+
+    public function logInfo()
+    {
+        $model = new MArticle();
+        return json($model->logInfo());
+    }
+
+    public function getInfo(){
+        $ka_id = $this->request->get('ka_id');
+        $model = new MArticle();
+        $result=$model->getInfo($ka_id);
+        if(isset($result['type'])){
+            $result['type']=(int)$result['type'];
+        }
+        return $result? json($result):json('参数错误!请刷新',1);
+    }
+}

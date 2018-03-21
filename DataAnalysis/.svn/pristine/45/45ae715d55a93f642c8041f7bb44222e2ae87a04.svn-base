@@ -1,0 +1,72 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2018/3/8
+ * Time: 11:05
+ */
+namespace app\index\model;
+
+use think\Db;
+use think\Log;
+use think\Request;
+use think\Session;
+
+class MSourceList extends Base
+{
+    public function getlist()
+    {
+        $request = Request::instance()->post();
+        $title = !empty($request["search"]['title'])?$request["search"]['title']:"";
+        $url = !empty($request["search"]['url'])?$request["search"]['url']:"";
+        $add_time = !empty($request["search"]['add_time'])?$request["search"]['add_time']:"";
+        $query = Db::table("web_material")->alias("wm")->field("wm.*,u.user_name")
+            ->join('users u','wm.add_user_id=u.user_id','left')->where("wm.status","=","1");
+        if ($title != "")
+            $query = $query->where("title","LIKE",'%'.$title.'%');
+        if ($url != "")
+            $query = $query->where("url","LIKE",'%'.$url.'%');
+        if ($add_time != "")
+            $query = $query->where('add_time','between',$add_time);
+        $data = $this->autoPaginate($query)->toArray();
+        return $data;
+    }
+
+    public function material_add()
+    {
+        $request = Request::instance()->post();
+        $id = !empty($request['id'])?$request['id']:"";
+        $title = !empty($request['title'])?$request['title']:"";
+        $url = !empty($request['url'])?$request['url']:"";
+        $des = !empty($request['des'])?$request['des']:"";
+        $level = !empty($request['level'])?$request['level']:0;
+        if (empty($id))
+            return ['type'=>false,"info"=>"修改失败,未获取到相关信息!!"];
+        Db::table("web_material")->insert(['title'=>$title,'url'=>$url,"des"=>$des,'level'=>$level,"add_time"=>date("Y-m-d H:i:s"),'add_user_id'=>Session::get("org_user_id")]);
+        return ['type'=>true,"info"=>"添加成功!!"];
+    }
+
+    public function material_edit()
+    {
+        $request = Request::instance()->post();
+        $id = !empty($request['id'])?$request['id']:"";
+        $title = !empty($request['title'])?$request['title']:"";
+        $url = !empty($request['url'])?$request['url']:"";
+        $des = !empty($request['des'])?$request['des']:"";
+        $level = !empty($request['level'])?$request['level']:0;
+        if (empty($id))
+            return ['type'=>false,"info"=>"修改失败,未获取到相关信息!!"];
+        Db::table("web_material")->where("wm_id","=",$id)->update(['title'=>$title,'url'=>$url,"des"=>$des,'level'=>$level,"add_time"=>date("Y-m-d H:i:s"),'add_user_id'=>Session::get("org_user_id")]);
+        return ['type'=>true,"info"=>"修改成功!!"];
+    }
+
+    public function material_delete()
+    {
+        $request = Request::instance()->post();
+        $id = !empty($request['id'])?$request['id']:"";
+        if (empty($id))
+            return ['type'=>false,"info"=>"删除失败,未获取到相关信息!!"];
+        Db::table("web_material")->where("wm_id","=",$id)->update(['status'=>"0"]);
+        return ['type'=>true,"info"=>"删除成功!!"];
+    }
+}

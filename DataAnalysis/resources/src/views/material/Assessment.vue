@@ -1,0 +1,235 @@
+<template>
+    <page-wrap>
+        <!-- 搜索栏 -->
+        <search-wrap>
+            <el-form ref="form" :model="searchData" label-width="100px" size="mini">
+                <el-row :gutter="22">
+                    <el-col :span="5">
+                        <div class="bg">
+                            <el-form-item label="推广人员：">
+                                <el-input v-model="searchData.user_name" placeholder="请输入内容"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="任务日期：">
+                                <el-date-picker
+                                        v-model="searchData.task_time"
+                                        type="daterange"
+                                        value-format="yyyy-MM-dd"
+                                        range-separator="至"
+                                        start-placeholder="开始日期"
+                                        end-placeholder="结束日期">
+                                </el-date-picker>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="5">
+                        <el-form-item label-width="0">
+                            <el-button type="primary" @click="onSubmit">查询</el-button>
+                            <el-button type="danger" @click="onClear">清空</el-button>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+            </el-form>
+        </search-wrap>
+
+
+
+        <!-- 表格 -->
+        <table-wrap>
+            <el-table
+                    ref="materialsourcetable"
+                    v-loading="loading"
+                    :data="tableData"
+                    size="mini"
+                    @sort-change="tableSortChange"
+                    :height="tabTableHeight">
+                <el-table-column
+                        label="推广人员"
+                        width="120px"
+                        prop="user_name">
+                </el-table-column>
+                <el-table-column
+                        label="部门"
+                        width="140px"
+                        prop="dp_name">
+                </el-table-column>
+                <el-table-column
+                        label="导入关键词"
+                        width="140px"
+                        prop="import_keyword">
+                    <template slot-scope="scope"><a @click="clickDomainLexicon(scope.row)" :title="scope.row.import_keyword">{{scope.row.import_keyword}}</a>
+                    </template>
+                </el-table-column>
+                <el-table-column
+                        label="任务关键词"
+                        width="140px"
+                        prop="task_keyword">
+                    <template slot-scope="scope"><a @click="clickDomainTask(scope.row,'')" :title="scope.row.task_keyword">{{scope.row.task_keyword}}</a>
+                    </template>
+                </el-table-column>
+                <el-table-column
+                        label="已维护关键词"
+                        width="140px"
+                        prop="maintain_keyword">
+                    <template slot-scope="scope"><a @click="clickDomainTask(scope.row,'2')" :title="scope.row.maintain_keyword">{{scope.row.maintain_keyword}}</a>
+                    </template>
+                </el-table-column>
+                <el-table-column
+                        label="关键词收录"
+                        width="140px"
+                        prop="include_keyword">
+                </el-table-column>
+                <el-table-column
+                        label="关键词达标"
+                        width="140px"
+                        prop="standard_keyword">
+                </el-table-column>
+                <el-table-column
+                        label="任务文章"
+                        width="140px"
+                        prop="task_article">
+                    <template slot-scope="scope"><a @click="clickDomainTaskDetail(scope.row,'')" :title="scope.row.task_article">{{scope.row.task_article}}</a>
+                    </template>
+                </el-table-column>
+                <el-table-column
+                        label="已发文章"
+                        width="140px"
+                        prop="send_article">
+                    <template slot-scope="scope"><a @click="clickDomainTaskDetail(scope.row,'1')" :title="scope.row.send_article">{{scope.row.send_article}}</a>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+
+
+        <!-- 分页 -->
+        <pagination :data="paginationData" @submit="onSubmit"/>
+
+    </page-wrap>
+</template>
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import paginationWrap from './../../components/pageStructure/paginationWrap.vue'
+    import NewPagination from './../../components/base/NewPagination.vue'
+    import Pagination from './../../components/pageStructure/Pagination.vue'
+    import { getDates }  from './../../assets/js/baseFunc/baseSelfFunc'
+    import { mapState, mapMutations } from 'vuex'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, TableWrap, paginationWrap, NewPagination, Pagination
+        },
+        data() {
+            return {
+                searchData: {
+                    user_name:'',
+                    task_time:[],
+                },
+                tableData: [],
+                loading: false,
+                openEditmaterial: false,
+                paginationData: {},
+            }
+        },
+        computed: {
+            ...mapState('navTabs', [
+                'tabTableHeight'
+            ])
+        },
+        mounted() {
+            this.initSearchData()
+            this.onSubmit()
+        },
+        methods: {
+            initSearchData() {
+                this.searchData = {
+                    user_name:'',
+                    task_time:[],
+                }
+                this.level_model = ""
+            },
+            onClear() {
+                this.initSearchData()
+            },
+            onSubmit(action = '') {
+                let that = this
+                if (action !== 'changeCurrentPage') {
+                    that.paginationData.currentPage = 1
+                }
+                if (action !== 'changeSort' && action !== 'changeCurrentPage') {
+                    that.paginationData.prop = 'task_time'
+                    that.paginationData.order = "descending"
+                }
+                if (!that.loading) {
+                    this.$ajax.post('/material_assessment/init', {
+                        search: that.searchData,
+                        paginate: that.paginationData
+                    })
+                        .then(function (res) {
+                            if (res.data !== undefined) {
+                                that.tableData = res.data.data
+                                that.paginationData.total = res.data.total
+                                that.loading = false
+//                            that.buttonControl = res.data.buttonControl
+                            }
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                }
+            },
+            tableSortChange(val) {
+                this.paginationData.prop = val.prop
+                this.paginationData.order = val.order
+                this.onSubmit('changeSort')
+            },
+            showPaginationData(data) {
+                this.paginationData.pageSizes = data.pageSizes
+                this.paginationData.pageSize = data.pageSize
+                this.paginationData.currentPage = data.currentPage
+            },
+            showSizeChange(val) {
+                this.paginationData.pageSize = val
+                this.onSubmit()
+            },
+            showCurrentChange(val) {
+                this.paginationData.currentPage = val
+                this.onSubmit('changeCurrentPage')
+            },
+            ...mapMutations('navTabs', ['addTab', 'func_keyword_to_lexicon','func_material_to_task','func_material_to_taskDetail']),
+            clickDomainLexicon (val) {
+                let obj = {
+                    dateTime: this.searchData.task_time,
+                    adder: val.dp_arr,
+                }
+                this.addTab({name: 'keywords/Lexicon', title: '词库与拓展'})
+                this.func_keyword_to_lexicon(obj)
+            },
+            clickDomainTask (val,type) {
+                let obj = {
+                    taskTime: this.searchData.task_time,
+                    userName: val.user_name,
+                    status:type,
+                }
+                this.addTab({name: 'material/Task', title: '任务分配'})
+                this.func_material_to_task(obj)
+            },
+            clickDomainTaskDetail (val,type) {
+                let obj = {
+                    taskTime: this.searchData.task_time,
+                    userName: val.user_name,
+                    status:type,
+                }
+                this.addTab({name: 'material/TaskDetail', title: '推广任务'})
+                this.func_material_to_taskDetail(obj)
+            },
+        }
+    }
+</script>

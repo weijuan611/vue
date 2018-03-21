@@ -1,0 +1,157 @@
+<template>
+    <page-wrap>
+        <!-- 搜索栏 -->
+        <search-wrap>
+            <search-form :data="searchData">
+                <form-row>
+                    <form-col width="5" label="关键词：">
+                        <el-input v-model="searchData.keyword" placeholder="请输入内容"></el-input>
+                    </form-col>
+                    <form-col width="4" label="推广人员：">
+                        <el-input v-model="searchData.userName" placeholder="请输入内容"></el-input>
+                    </form-col>
+                    <form-col width="8" label="任务日期：">
+                        <el-date-picker
+                                v-model="searchData.taskTime"
+                                type="daterange"
+                                value-format="yyyy-MM-dd"
+                                range-separator="至"
+                                start-placeholder="开始日期"
+                                end-placeholder="结束日期">
+                        </el-date-picker>
+                    </form-col>
+                    <form-col width="4" label="完成状态：">
+                        <el-select v-model="searchData.status">
+                            <el-option value="0" label="未完成"/>
+                            <el-option value="1" label="已完成"/>
+                        </el-select>
+                    </form-col>
+                    <form-col width="3">
+                        <el-button type="primary" @click="onSubmit(null)">查询</el-button>
+                        <el-button type="danger" @click="onClear">清空</el-button>
+                    </form-col>
+                </form-row>
+            </search-form>
+        </search-wrap>
+
+        <!-- 表格 -->
+        <table-wrap>
+            <div class="withTableHeader">
+                <el-tag type="success">任务文章数总计:{{complete_num}}/{{article_num}}</el-tag>
+            </div>
+            <el-table
+                    ref="materialTaskTable"
+                    v-loading="loading"
+                    :data="tableData"
+                    size="mini"
+                    @sort-change="tableSortChange"
+                    :height="tabTableHeight">
+                <el-table-column label="关键词" prop="keyword" width="140px"></el-table-column>
+                <el-table-column label="分类" prop="category"></el-table-column>
+                <el-table-column label="绑定学校" prop="l_name"></el-table-column>
+                <el-table-column label="任务时间" prop="create_time"></el-table-column>
+                <el-table-column label="任务文章数/词">
+                    <template slot-scope="scope">{{scope.row.complete_num}}/{{scope.row.article_num}}</template>
+                </el-table-column>
+                <el-table-column label="状态">
+                    <template slot-scope="scope">{{scope.row.status !== 0 ? '完成':'未完成'}}</template>
+                </el-table-column>
+                <el-table-column label="推广人员" prop="user_name" width="140px"></el-table-column>
+                <el-table-column label="操作" width="220px" header-align="center">
+                    <template slot-scope="scope">
+                        <el-button type="text" plain size="mini" icon="el-icon-edit" @click="openMaterial">素材</el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-edit">推广</el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-edit">文章</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+
+        <!-- 分页 -->
+        <pagination :data="paginationData" @submit="onSubmit"/>
+
+        <!-- 素材录用 -->
+        <material-input
+          :show="showMaterialInput"
+          @close="closeMaterialInput"
+        />
+    </page-wrap>
+</template>
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import Pagination from './../../components/pageStructure/Pagination.vue'
+    import SearchForm from './../../components/pageStructure/SearchForm.vue'
+    import FormRow from './../../components/pageStructure/SearchFormRow.vue'
+    import FormCol from './../../components/pageStructure/SearchFormRowCol.vue'
+    import MaterialInput from './TaskDetailComponents/MaterialInput.vue'
+
+    import {mapState} from 'vuex'
+    export default {
+        components: {
+            PageWrap, SearchWrap, TableWrap,  Pagination, SearchForm, FormRow, FormCol, MaterialInput
+        },
+        data() {
+            return {
+                searchData: {keyword:'',userName: '', taskTime: [], status: ''},
+                tableData: [],
+                loading: false,
+                paginationData: {currentPage:1,pageSize:50,total:0},
+                buttonControl:{},
+                complete_num:0,
+                article_num:0,
+                showMaterialInput: false
+            }
+        },
+        computed: {
+            ...mapState('navTabs', [
+                'tabTableHeight'
+            ])
+        },
+        mounted() {
+            this.onSubmit()
+        },
+        methods: {
+            openMaterial () {
+              this.showMaterialInput = true
+            },
+            closeMaterialInput (val) {
+              this.showMaterialInput = false
+            },
+            onClear(){
+                this.searchData ={keyword:'',userName: '', taskTime: [], status: ''}
+            },
+            onSubmit(paginationData=null) {
+                let that = this
+                if(paginationData !== null){
+                    that.paginationData = paginationData;
+                }else{
+                    that.paginationData.currentPage = 1;
+                }
+                if(this.loading){
+                    return
+                }
+                this.$ajax.post('/material_task_detail/list', {search: that.searchData, paginate: that.paginationData})
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.tableData = res.data.data
+                            that.paginationData.total = res.data.total
+                            that.loading = false
+                            that.buttonControl = res.data.buttonControl
+                        }
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+            },
+            tableSortChange(val){
+                this.paginationData.prop = val.prop
+                this.paginationData.order = val.order
+                this.onSubmit()
+            },
+        }
+    }
+</script>

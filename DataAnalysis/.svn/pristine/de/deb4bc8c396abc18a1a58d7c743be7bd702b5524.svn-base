@@ -1,0 +1,51 @@
+<?php
+
+namespace app\script\command;
+
+use app\script\model\TaskGenerator;
+use think\console\Command;
+use think\console\Input;
+use think\console\Output;
+use think\console\input\Argument;
+
+class TaskGen extends Command
+{
+    /**
+     * 面板
+     */
+    protected function configure()
+    {
+        $this->setName('taskgen')->setDescription('task processing');
+        $this->addOption('taskgen_param', 'p', Argument::REQUIRED, '1.generate 2.deliver 3.count');
+    }
+
+    /**
+     * 入口
+     * @param Input $input
+     * @param Output $output
+     */
+    protected function execute(Input $input, Output $output)
+    {
+        $time = time();
+        $this->output->writeln(date('Y-m-d H:i:s'));
+
+        $param = $input->getOption('taskgen_param');
+        switch($param){
+            case 1:
+                (new TaskGenerator())->gen();
+                $this->output->writeln('今日任务生成完成');
+                break;
+            case 2:
+                (new TaskGenerator())->deliver();
+                $this->output->writeln('今日任务分发完成');
+                break;
+            case 3:
+                (new TaskGenerator())->count();
+                $this->output->writeln('今日任务统计完成');
+                break;
+        }
+        $time = time() - $time;
+        $this->output->writeln("all steps end!" . round($time / 60) . ':' . round($time / 60));
+    }
+
+}

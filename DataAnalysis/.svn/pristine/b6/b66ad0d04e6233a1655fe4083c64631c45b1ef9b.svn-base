@@ -1,0 +1,33 @@
+import Vuex from 'vuex'
+
+const state = {
+    relogin: false,
+    taskDetail_to_input: {
+        kw_id: '',
+        td_id: ''
+    }
+}
+
+const mutations = {
+    func_setRelogin (state, bool) {
+        state.relogin = bool
+    },
+    func_taskDetail_to_input (state, bool) {
+        state.taskDetail_to_input = {
+            kw_id: bool.kw_id,
+            td_id: bool.td_id
+        }
+    },
+    func_taskDetail_to_article (state, bool) {
+        state.taskDetail_to_article = {
+            kw_id: bool.kw_id,
+            td_id: bool.td_id
+        }
+    },
+}
+
+export default {
+    namespaced: true,
+    state,
+    mutations
+}

@@ -1,0 +1,178 @@
+<template>
+    <page-wrap>
+        <!-- 搜索栏 -->
+        <search-wrap>
+            <el-form ref="form" :model="searchData" label-width="100px" size="mini">
+                <el-row :gutter="22">
+                    <el-col :span="5">
+                        <div class="bg">
+                            <el-form-item label="推广人员：">
+                                <el-input v-model="searchData.userName" placeholder="请输入内容"></el-input>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="6">
+                        <div class="bg">
+                            <el-form-item label="任务日期：">
+                                <el-date-picker
+                                        v-model="searchData.taskTime"
+                                        type="daterange"
+                                        value-format="yyyy-MM-dd"
+                                        range-separator="至"
+                                        start-placeholder="开始日期"
+                                        end-placeholder="结束日期">
+                                </el-date-picker>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="bg">
+                            <el-form-item label="任务状态：">
+                                <el-select v-model="searchData.status">
+                                    <el-option value="0" label="已取消"/>
+                                    <el-option value="1" label="待发布"/>
+                                    <el-option value="2" label="已发布"/>
+                                </el-select>
+                            </el-form-item>
+                        </div>
+                    </el-col>
+                    <el-col :span="5">
+                        <el-form-item label-width="0">
+                            <el-button type="primary" @click="onSubmit">查询</el-button>
+                            <el-button type="danger" @click="onClear">清空</el-button>
+                            <el-button type="success" @click="onAdd">添加任务</el-button>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+            </el-form>
+        </search-wrap>
+        <!-- 表格 -->
+        <table-wrap>
+            <el-table
+                    ref="materialTaskTable"
+                    v-loading="loading"
+                    :data="tableData"
+                    size="mini"
+                    @sort-change="tableSortChange"
+                    :height="tabTableHeight">
+                <el-table-column label="推广人员" prop="user_name"></el-table-column>
+                <el-table-column label="部门" prop="dp_name"></el-table-column>
+                <el-table-column label="任务关键词数" prop="keyword_num"></el-table-column>
+                <el-table-column label="任务文章数/词" prop="article_num"></el-table-column>
+                <el-table-column label="任务时间" prop="task_time" width="140px"></el-table-column>
+                <el-table-column label="发布人" prop="release_user_name"></el-table-column>
+                <el-table-column label="发布时间" prop="release_time" width="140px"></el-table-column>
+                <el-table-column label="备注" prop="memo"></el-table-column>
+                <el-table-column label="操作" width="220px" header-align="center">
+                    <template slot-scope="scope">
+                        <el-button type="text" plain size="mini" icon="el-icon-edit"
+                                   @click="onRelease(scope.row)">发布
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-edit"
+                                   @click="onEdit(scope.row)">编辑
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-delete" v-show="scope.row.status != 0"
+                                   @click="onDelete(scope.row)">取消
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-info"  v-show="scope.row.status == 0"
+                                   @click="onBack(scope.row)">恢复
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+        <!-- 分页 -->
+        <pagination :data="paginationData" @submit="onSubmit"/>
+    </page-wrap>
+</template>
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import Pagination from './../../components/pageStructure/Pagination.vue'
+    import {mapState} from 'vuex'
+
+    export default {
+        components: {
+            PageWrap, SearchWrap, TableWrap,  Pagination
+        },
+        data() {
+            return {
+                searchData: {userName: '', taskTime: [], status: ''},
+                tableData: [],
+                loading: false,
+                paginationData: {currentPage:1,pageSize:50,total:0},
+                buttonControl:{},
+                editRule: {
+                    title: [
+                        {required: true, message: '请输入素材站站点名称', trigger: 'blur'}
+                    ],
+                    url: [
+                        {required: true, message: '请输入素材站站点URL', trigger: 'blur'}
+                    ]
+                },
+            }
+        },
+        computed: {
+            ...mapState('navTabs', [
+                'tabTableHeight'
+            ])
+        },
+        mounted() {
+            this.onSubmit()
+        },
+        methods: {
+            onClear(){
+               this.searchData ={userName: '', taskTime: [], status: ''}
+            },
+            onSubmit(paginationData=null) {
+                let that = this
+                if(paginationData !== null){
+                    that.paginationData = paginationData;
+                }
+                if(this.loading){
+                    return
+                }
+                this.$ajax.post('/material_task/list', {search: that.searchData, paginate: that.paginationData})
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.tableData = res.data.data
+                            that.paginationData.total = res.data.total
+                            that.loading = false
+                            that.buttonControl = res.data.buttonControl
+                        }
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+            },
+            tableSortChange(val){
+                this.paginationData.prop = val.prop
+                this.paginationData.order = val.order
+                this.paginationData.currentPage = 1
+                this.onSubmit()
+            },
+            onAdd(){},
+            onDelete(row) {
+                let that = this
+                this.$ajax.post('/material_task/delete', {id: row.t_id})
+                    .then(function (res) {
+                        if (res.data.type) {
+                            that.onSubmit()
+                            that.$message({
+                                type: 'success',
+                                message: res.data.info
+                            })
+                        } else {
+                            that.$message({type: 'error', message: res.data.info})
+                        }
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+            },
+        }
+    }
+</script>

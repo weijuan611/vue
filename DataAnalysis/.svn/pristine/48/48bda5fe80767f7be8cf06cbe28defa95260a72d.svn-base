@@ -1,0 +1,20 @@
+<?php
+
+namespace app\index\model;
+use think\Db;
+
+/**
+ * 关键词类 wdy
+ * Class Keyword
+ * @package app\index\model
+ */
+class Keyword extends Base
+{
+    public function getListCommon(){
+        $query = Db::table('keywords k')->join('users u','k.user_id = u.user_id','left')
+        ->field('k.kw_id,k.keyword')->where('k.status','<>',3);
+        $this->checkSearch($query,['keyword'=>['k.keyword','like']]);
+        $this->checkRange($query,'u.dp_id','u.user_id');
+        return $this->autoPaginate($query)->toArray();
+    }
+}

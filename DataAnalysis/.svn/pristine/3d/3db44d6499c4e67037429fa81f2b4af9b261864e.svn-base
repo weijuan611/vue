@@ -1,0 +1,52 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2018/3/8
+ * Time: 11:05
+ */
+namespace app\index\model;
+
+use think\Db;
+use think\Log;
+use think\Request;
+use think\Session;
+
+class MMaterialKeywordList extends Base
+{
+    public function getlist()
+    {
+        $request = Request::instance()->post();
+        $keyword = !empty($request["search"]['keyword'])?$request["search"]['keyword']:"";
+        $title = !empty($request["search"]['title'])?$request["search"]['title']:"";
+        $url = !empty($request["search"]['url'])?$request["search"]['url']:"";
+        $status = !empty($request["search"]['status_model'])?$request["search"]['status_model']:"";
+        $add_time = !empty($request["search"]['add_time'])?$request["search"]['add_time']:"";
+        $query = Db::table("keywords_material")->alias("km")->field("km.*,k.keyword,c.catename")
+            ->join('keywords k','k.kw_id=km.kw_id','left')
+            ->join('categories c','c.c_id=k.c_id','left');
+        if ($keyword != "")
+            $query = $query->where("k.keyword","LIKE",'%'.$keyword.'%');
+        if ($title != "")
+            $query = $query->where("km.title","LIKE",'%'.$title.'%');
+        if ($url != "")
+            $query = $query->where("km.url","=",$url);
+        if ($status != "")
+            $query = $query->where("km.status","=",$status);
+        if ($add_time != "")
+            $query = $query->where('km.add_time','between',$add_time);
+        $data = $this->autoPaginate($query)->toArray();
+        return $data;
+    }
+
+    public function material_changetype()
+    {
+        $request = Request::instance()->post();
+        $id = !empty($request['id'])?$request['id']:"";
+        $type = !empty($request['type'])?$request['type']:0;
+        if ($id == "")
+            return ['type'=>false,"info"=>"删除失败,未获取到相关信息!!"];
+        Db::table("keywords_material")->where("km_id","=",$id)->update(['status'=>$type]);
+        return ['type'=>true,"info"=>"修改成功!!"];
+    }
+}

@@ -1,0 +1,131 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2018/3/10
+ * Time: 13:59
+ */
+
+namespace app\index\controller\material;
+
+
+use app\index\controller\Base;
+use app\index\model\TaskDetails;
+use think\Exception;
+use think\Log;
+
+class TaskDetail extends Base
+{
+    public function getList(){
+        $model = new TaskDetails();
+        $result = $model->getList();
+        $complete_num = 0;
+        $article_num = 0;
+        if(!empty($result['data'])){
+            foreach ($result['data'] as $value){
+                $complete_num+=$value['complete_num'];
+                $article_num+=$value['article_num'];
+            }
+        }
+        return json(['data'=>$result['data'],'total'=>$result['total'],'complete_num'=>$complete_num,
+            'article_num'=>$article_num,'buttonControl'=>[]]);
+    }
+
+    public function getInputInfo(){
+        $kw_id = $this->request->get('kw_id');
+        $model = new TaskDetails();
+        $result = $model->getInputInfo($kw_id);
+        if(isset($result['type'])){
+            $result['type']=(int)$result['type'];
+        }
+        if(!empty($result)){
+            return json($result);
+        }else{
+            return json('未找到相关信息',1);
+        }
+    }
+
+    public function postInputSave(){
+        $post = $this->request->post();
+        $model = new TaskDetails();
+        $km_id = $model->inputSave($post);
+        if($km_id){
+            return $this->jsonResult($km_id);
+        }else{
+            return $this->jsonResult('',1,'保存素材失败');
+        }
+    }
+
+    public function postInputSaveRelease(){
+        $post = $this->request->post();
+        $model = new TaskDetails();
+        $km_id = $model->inputSave($post);
+        if($km_id){
+            $ka_id=$model->articleSave($post);
+            if($ka_id&&$model->articleRelease($ka_id)){
+                return $this->jsonResult(['km_id'=>$km_id,'ka_id'=>$ka_id]);
+            }else{
+                $ka_id = $ka_id?$ka_id:0;
+                return $this->jsonResult(['km_id'=>$km_id,'ka_id'=>$ka_id],1,$model->getMessage());
+            }
+        }
+        return $this->jsonResult(['km_id'=>0,'ka_id'=>0],1,$model->getMessage());
+    }
+
+    public function updateCoverImg(){
+        // 获取表单上传文件 例如上传了001.jpg
+        try{
+            $file = request()->file('cover_img');
+            // 移动到框架应用根目录/public/uploads/ 目录下
+            if($file){
+                $info = $file->move(ROOT_PATH . 'public' . DS . 'uploads');
+                if($info){
+                    return json('uploads'.DS.$info->getSaveName());
+                }else{
+                    // 上传失败获取错误信息
+                    return json($file->getError(),1);
+                }
+            }
+        }catch (Exception $e){
+            Log::error($e->getMessage().PHP_EOL.$e->getTraceAsString());
+        }
+
+    }
+
+    public function updateContentImg(){
+        // 获取表单上传文件 例如上传了001.jpg
+        $file = request()->file('img');
+        Log::write($file);
+        // 移动到框架应用根目录/public/uploads/ 目录下
+        if($file){
+            $info = $file->validate(['size'=>15678,'ext'=>'jpg,png,gif'])->move(ROOT_PATH . 'public' . DS . 'uploads');
+            if($info){
+                return json( 'uploads'.DS.$info->getSaveName());
+            }else{
+                // 上传失败获取错误信息
+                return json($file->getError(),1);
+            }
+        }
+    }
+
+    public function articleInputSave(){
+        $post = $this->request->post();
+        $model = new TaskDetails();
+        $ka_id=$model->articleSave($post);
+        if($ka_id){
+            return $this->jsonResult($ka_id);
+        }else{
+            return $this->jsonResult($ka_id,1,$model->getMessage());
+        }
+    }
+
+    public function articleInputSaveRelease(){
+        $post = $this->request->post();
+        $model = new TaskDetails();
+        $ka_id=$model->articleSave($post);
+        if($ka_id&&$model->articleRelease($ka_id)){
+            return $this->jsonResult($ka_id);
+        }
+        return $this->jsonResult($ka_id,1,$model->getMessage());
+    }
+}

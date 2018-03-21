@@ -1,0 +1,117 @@
+.check_orange {
+  display: inline-block;
+  width: 55px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  color: #fff;
+  font-size: 11px;
+  border-radius: 1px;
+  letter-spacing: 1px;
+  background-color: #efaf20;
+}
+.check_green {
+  display: inline-block;
+  width: 55px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  color: #fff;
+  font-size: 11px;
+  border-radius: 1px;
+  letter-spacing: 1px;
+  background-color: #7bb17b;
+}
+.check_red {
+  display: inline-block;
+  width: 55px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  color: #fff;
+  font-size: 11px;
+  border-radius: 1px;
+  letter-spacing: 1px;
+  background-color: #ec7754;
+}
+.check_grey {
+  display: inline-block;
+  width: 55px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  color: #666;
+  font-size: 11px;
+  border-radius: 1px;
+  letter-spacing: 1px;
+  background-color: #ccc;
+}
+
+.border_check_orange {
+  display: inline-block;
+  width: 55px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  font-size: 11px;
+  border-radius: 1px;
+  letter-spacing: 1px;
+  background-color: #fff;
+  color: #efaf20;
+  border-radius: 3px;
+  margin-top: 3px;
+  border: 1px solid #efaf20;
+}
+.border_check_green {
+  display: inline-block;
+  width: 55px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  font-size: 11px;
+  border-radius: 1px;
+  letter-spacing: 1px;
+  background-color: #fff;
+  color: #7bb17b;
+  border-radius: 3px;
+  margin-top: 3px;
+  border: 1px solid #7bb17b;
+}
+.border_check_red {
+  display: inline-block;
+  width: 55px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  font-size: 11px;
+  border-radius: 1px;
+  letter-spacing: 1px;
+  background-color: #fff;
+  color: #ec7754;
+  border-radius: 3px;
+  border: 1px solid #ec7754;
+  margin-top: 3px;
+}
+
+.table1 {
+  border-collapse: collapse;
+  text-indent: 5px;
+  width: 100%;
+}
+.table1 tr {
+  height: 40px;
+}
+.table1 tr td {
+  border: 1px solid #eee;
+}
+.buttons {
+  text-align: center;
+}
+.buttons .el-button {
+  margin: 5px 0;
+  width: 100px;
+}
+.buttons2 {
+  text-align: center;
+  height: 70px;
+}

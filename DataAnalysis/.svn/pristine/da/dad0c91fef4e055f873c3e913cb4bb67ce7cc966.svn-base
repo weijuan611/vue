@@ -1,0 +1,197 @@
+<template>
+    <el-dialog title="添加/编辑任务" :visible="dialogShow" @close="dialogShow = false" :modal="false" width="30%">
+        <el-form ref="task_add_form" :model="form" size="mini"  label-width="100px">
+            <el-form-item label="人员:" v-show="type !== 'editAll'">
+                <el-select v-model="form.user_id" multiple placeholder="请选择">
+                    <el-option
+                            v-for="item in form.user_name"
+                            :key="item.user_id"
+                            :label="item.user_name"
+                            :value="item.user_id">
+                    </el-option>
+                </el-select>
+                <el-button icon="el-icon-search" @click="userShow = !userShow"/>
+            </el-form-item>
+            <el-form-item label="分类:">
+                <el-input v-model="form.category" readonly><el-button slot="append" icon="el-icon-search" @click="categoryShow = !categoryShow"/></el-input>
+            </el-form-item>
+            <el-form-item label="模式:">
+                <el-radio-group v-model="form.type">
+                    <el-radio label="0">指定数量</el-radio>
+                    <el-radio label="1" v-show="type !== 'editAll'">指定关键词</el-radio>
+                </el-radio-group>
+            </el-form-item>
+            <el-form-item label="关键词数量:">
+                <el-input v-model="form.keyword_num" :disabled="form.type !=0"/>
+            </el-form-item>
+            <el-form-item label="关键词指定:" v-show="type !== 'editAll'">
+                <el-select v-model="form.kw_id" multiple  placeholder="请选择" :disabled="form.type !=1">
+                    <el-option
+                            v-for="item in form.keywords"
+                            :key="item.kw_id"
+                            :label="item.keyword"
+                            :value="item.kw_id">
+                    </el-option>
+                </el-select>
+                <el-button icon="el-icon-search" @click="keywordShow = !keywordShow"/>
+            </el-form-item>
+            <el-form-item label="任务数/词:">
+                <el-input v-model="form.article_num" />
+            </el-form-item>
+            <el-form-item label="任务日期:" v-show="type !== 'editAll'">
+                <el-date-picker v-model="form.task_time" type="date" placeholder="选择日期" @change="makesure"/>
+            </el-form-item>
+            <el-form-item label="备注:">
+                <el-input type="textarea" v-model="form.memo" />
+            </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+            <el-button @click="dialogShow = false">取 消</el-button>
+            <el-button type="primary" @click="handleConfirm">提交</el-button>
+        </div>
+        <keyword-category :handle="categoryShow" @callback="categoryCallback"/>
+        <keyword :handle="keywordShow" @callback="keywordCallback"/>
+        <user :handle="userShow" @callback="userCallback"/>
+    </el-dialog>
+</template>
+<script>
+    import KeywordCategory from './../../components/dialog/KeywordCategory.vue'
+    import Keyword from './../../components/dialog/Keyword.vue'
+    import User from './../../components/dialog/User.vue'
+    export default {
+        components:{
+          KeywordCategory,Keyword,User
+        },
+        props:{
+            handle:{
+                type:Boolean,
+                default:false,
+            },
+            type:{
+                type:String,
+                default:''
+            },
+            taskId:{
+                type:Array,
+                default:[]
+            }
+        },
+        watch:{
+            handle:function (data,old) {
+                this.dialogShow=true
+            },
+            taskId:function (data,old) {
+                if(data.length === 1){
+                    let that = this
+                    this.$ajax.get('material_task/get?t_id='+data).then(function (res) {
+                        that.form = res.data
+                    }).catch(function (err) {
+                        that.$message({type:'error',message:'网络错误请联系管理员'})
+                    })
+                }else{
+                    this.form = {user_name:[], user_id:[], category:'', c_id:0, type:'0', keyword_num:0,
+                        kw_id:[], keywords:[], article_num:0, task_time:'', memo:''};
+                }
+            }
+        },
+        data(){
+            return {
+                userShow:false,
+                keywordShow:false,
+                dialogShow:false,
+                categoryShow:false,
+                form:{
+                    user_name:[],
+                    user_id:[],
+                    category:'',
+                    c_id:0,
+                    type:'0',
+                    keyword_num:0,
+                    kw_id:[],
+                    keywords:[],
+                    article_num:0,
+                    task_time:'',
+                    memo:''
+                },
+            }
+        },
+        methods:{
+            categoryCallback:function(data){
+                this.form.c_id = data.id
+                this.form.category = data.value
+            },
+            keywordCallback:function (data) {
+                data.forEach(function (value,index,ob) {
+                    if(this.form.kw_id.indexOf(value.kw_id) === -1){
+                        this.form.kw_id.push(value.kw_id)
+                    }
+                    if(this.form.keywords.indexOf(value) === -1){
+                        this.form.keywords.push(value)
+                    }
+                },this)
+            },
+            userCallback:function (data) {
+                [data].forEach(function (value,index,ob) {
+                    if(this.form.user_id.indexOf(value.user_id) === -1){
+                        this.form.user_id.splice(0,1,value.user_id)
+                    }
+                    if(this.form.user_name.indexOf(value) === -1){
+                        this.form.user_name.splice(0,1,value)
+                    }
+                },this)
+            },
+            makesure:function() {
+                let that = this
+                let start_time = new Date(that.form.task_time)
+                let time_now =  new Date();
+                let time_def = parseInt(start_time-time_now)/(1000*3600*24)+1
+                if (time_def < 0) {
+                    that.$message({
+                        message: "请选择今天之后的日期",
+                        type: 'warning'
+                    });
+                    return false
+                }
+            },
+            handleConfirm:function () {
+                let start_time = new Date(this.form.task_time)
+                let time_now =  new Date();
+                let time_def = parseInt(start_time-time_now)/(1000*3600*24)+1
+                if (time_def < 0) {
+                    this.$message.warning("请选择今天之后的日期！")
+                }else if(this.form.type === "1"&&this.form.user_id.length > 1){
+                    this.$message.warning("多用户不可指定关键词！")
+                }else if(this.form.task_time === ''&&this.type !== 'editAll'){
+                    this.$message.warning("请选择日期！")
+                }else if(this.form.user_id.length < 1&&this.type !== 'editAll'){
+                    this.$message.warning("请选择人员！")
+                }else if(this.form.c_id === 0){
+                    this.$message.warning("请选择分类！")
+                }else{
+                    let that = this
+                    let url,post;
+                    if(this.type ==='edit'||this.type === 'editAll'){
+                        url = 'material_task/edit';
+                        post = this.form;
+                        post.t_id = this.taskId
+                    }else{
+                        url= 'material_task/add';
+                        post = this.form;
+                    }
+                    this.$ajax.post(url,post).then(function (res) {
+                        that.$message({
+                            message:res.data.message,
+                            type:res.data.type
+                        })
+                        that.form = {user_name:[], user_id:[], category:'', c_id:0, type:'0',
+                            keyword_num:0, kw_id:[], article_num:0, task_time:'', memo:''}
+                        that.dialogShow = false
+                        that.$emit('callback',null)
+                    }).catch(function (err) {
+                        that.$message({type:'error',message:"网络错误，请联系管理员！"})
+                    })
+                }
+            }
+        }
+    }
+</script>

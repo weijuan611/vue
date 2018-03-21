@@ -1,0 +1,73 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2018/3/10
+ * Time: 14:04
+ */
+
+namespace app\index\model;
+
+
+use think\Db;
+use think\Log;
+use think\Model;
+use think\Request;
+use think\Session;
+
+class MSynonyms extends Base
+{
+    protected $searchColumn = [
+        'synonyms'=>['s.word','like'],
+        'add_user_name'=>['u.user_name','like'],
+        'status'=>['s.status','='],
+        'add_time'=>['s.add_time','between','time'],
+    ];
+
+    public function getlist()
+    {
+        $query = Db::table("synonyms")->alias("s")->field("s.*,u.user_name as add_user_name,uu.user_name as update_user_name,c.dp_name as add_dp_name,cc.dp_name as update_dp_name")
+            ->join('users u','u.user_id=s.add_user_id','left')
+            ->join('users uu','uu.user_id=s.update_user_id','left')
+            ->join('departments c','c.dp_id=u.dp_id','left')
+            ->join('departments cc','cc.dp_id=uu.dp_id','left');
+        $this->checkSearch($query);
+        $data = $this->autoPaginate($query)->toArray();
+        return $data;
+    }
+
+    public function material_changetype()
+    {
+        $request = Request::instance()->post();
+        $type = !empty($request['type'])?$request['type']:0;
+        if (is_array($request['id']) && count($request['id']) != 0) {
+            $id = !empty($request['id'])?$request['id']:[];
+            Db::table("synonyms")->where("sy_id","IN",$id)->update(['status'=>$type]);
+        } elseif (is_int((int)$request['id']) && !empty($request['id'])) {
+            $id = !empty($request['id'])?$request['id']:"";
+            Db::table("synonyms")->where("sy_id","=",$id)->update(['status'=>$type]);
+        } else {
+            return ['type'=>false,"info"=>"修改失败,未获取到相关信息!!"];
+        }
+        return ['type'=>true,"info"=>"修改成功!!"];
+    }
+
+    public function material_addSynonyms()
+    {
+        $request = Request::instance()->post();
+        $word = empty($request['search']['word'])?"":$request['search']['word'];
+        $synonym = empty($request['search']['synonym'])?"":$request['search']['synonym'];
+        if ($word == "" OR $synonym == "")
+            return ['type'=>false,"info"=>"未获取到同义词"];
+        $data = Db::table("synonyms")->where("word","=",$word)
+            ->where("synonym","=",$synonym)
+            ->where("status","=","1")->find();
+        if (empty($data)) {
+            $user = Session::get("org_user_id");
+            Db::table("synonyms")->insert(['word'=>$word,'synonym'=>$synonym,"add_user_id"=>$user,"add_time"=>date("Y-m-d H:i:s")]);
+            return ['type'=>"success","info"=>"添加同义词成功"];
+        } else {
+            return ['type'=>false,"info"=>"数据库存在该同义词组"];
+        }
+    }
+}

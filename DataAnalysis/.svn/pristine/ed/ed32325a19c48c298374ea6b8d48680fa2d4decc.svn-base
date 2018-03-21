@@ -1,0 +1,59 @@
+<template>
+    <el-dialog
+      title="查找带回"
+      :visible.sync="show"
+      width="30%"
+      :before-close="handleClose">
+      <el-table
+        ref="findback_table"
+        :data="data"
+        tooltip-effect="dark"
+        style="width: 100%"
+        @selection-change="handleSelectionChange">
+        <el-table-column
+          type="selection"
+          width="55">
+        </el-table-column>
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="120">
+        </el-table-column>
+        <el-table-column
+          prop="name"
+          label="标签"
+          width="120">
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+</template>
+
+<script>
+export default {
+  props: {
+    show: true
+  },
+  data () {
+    return {
+      data: [
+        {
+          id: 1,
+          name: 'label1'
+        },
+        {
+          id: 1,
+          name: 'label2'
+        }
+      ]
+    }
+  },
+  methods: {
+    handleSelectionChange () {
+
+    },
+    handleClose () {
+
+    }
+  }
+}
+</script>

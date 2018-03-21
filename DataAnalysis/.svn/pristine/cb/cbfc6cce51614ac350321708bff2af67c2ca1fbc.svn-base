@@ -1,0 +1,42 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2018/3/10
+ * Time: 13:59
+ */
+
+namespace app\index\controller\material;
+
+
+use app\index\controller\Base;
+use app\index\model\TaskDetails;
+
+class TaskDetail extends Base
+{
+    public function getList(){
+        $model = new TaskDetails();
+        $result = $model->getList();
+        $complete_num = 0;
+        $article_num = 0;
+        if(!empty($result['data'])){
+            foreach ($result['data'] as $value){
+                $complete_num+=$value['complete_num'];
+                $article_num+=$value['article_num'];
+            }
+        }
+        return json(['data'=>$result['data'],'total'=>$result['total'],'complete_num'=>$complete_num,
+            'article_num'=>$article_num,'buttonControl'=>[]]);
+    }
+
+    public function getInputInfo(){
+        $kw_id = $this->request->get('kw_id');
+        $model = new TaskDetails();
+        $result = $model->getInputInfo($kw_id);
+        if(!empty($result)){
+            return json($result);
+        }else{
+            return json('未找到相关信息',1);
+        }
+    }
+}

@@ -1,0 +1,52 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2018/3/13
+ * Time: 17:05
+ */
+
+namespace app\index\model;
+
+
+use think\Db;
+
+class MArticle extends Base
+{
+    protected $searchColumn = [
+        'ka_id'=>['ka.ka_id','='],
+        'keyword'=>['k.keyword','like'],
+        'title'=>['ka.title','like'],
+        'add_user_name'=>['u.user_name','like'],
+        'edit_user_name'=>['uu.user_name','like'],
+        'status'=>['ka.status','='],
+        'add_time'=>['ka.add_time','between','time'],
+        'edit_time'=>['ka.edit_time','between','time'],
+    ];
+    public function getlist()
+    {
+        $query = Db::table("keywords_article")->alias("ka")
+            ->field("ka.*,k.keyword,c.catename,sl.l_name as school_name,u.user_name as add_user_name,uu.user_name as edit_user_name,d.dp_name as add_dp_name,dd.dp_name as edit_dp_name")
+            ->join("keywords k","k.kw_id=ka.kw_id","LEFT")
+            ->join("keywords_label kl","k.kw_id=kl.kw_id","LEFT")
+            ->join("labels_school sl","sl.s_id=kl.l_id","LEFT")
+            ->join("categories c","k.c_id=c.c_id","LEFT")
+            ->join("users u","u.user_id=ka.add_user_id","LEFT")
+            ->join("users uu","uu.user_id=ka.edit_user_id","LEFT")
+            ->join("departments d","d.dp_id=ka.add_dp_id","LEFT")
+            ->join("departments dd","dd.dp_id=ka.edit_dp_id","LEFT");
+        $this->checkSearch($query);
+        $this->checkRange($query,'d.dp_id','u.user_id');
+        return $this->autoPaginate($query)->toArray();
+    }
+
+    public function logInfo()
+    {
+        $query = Db::table("keywords_article_log")->alias("kal")->field("kal.menu,kal.edit_time, u.user_name,ka.*")
+            ->join("keywords_article ka","kal.ka_id=ka.ka_id","left")
+            ->join("users u","u.user_id=kal.edit_user_id","LEFT");
+        $this->checkSearch($query);
+        $this->checkRange($query,'d.dp_id','u.user_id');
+        return $this->autoPaginate($query)->toArray();
+    }
+}

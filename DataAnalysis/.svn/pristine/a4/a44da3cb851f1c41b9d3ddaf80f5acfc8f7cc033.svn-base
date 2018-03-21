@@ -1,0 +1,55 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2018/3/10
+ * Time: 14:01
+ */
+
+namespace app\index\model;
+
+use think\Db;
+use think\Exception;
+use think\Log;
+
+class TaskDetails extends Base
+{
+    private $message='';
+
+    protected $searchColumn = [
+        'keyword'=>['k.keyword','like'],
+        'userName'=>['u.user_name','like'],
+        'taskTime'=>['td.task_time','between'],
+        'status'=>['td.status','='],
+    ];
+
+    public function getList(){
+        $query = Db::table('task_detail td')
+            ->join('users u','td.user_id = u.user_id','left')
+            ->join('keywords k','k.kw_id = td.kw_id','left')
+            ->join('categories c','k.c_id = c.c_id','left')
+            ->join('keywords_label kl','k.kw_id = kl.kw_id and kl.type = 1','left')
+            ->join('labels_school ls','ls.s_id = kl.l_id','left')
+            ->field('td.*,u.user_name,k.keyword,c.catename category,ls.l_name');
+        $this->checkSearch($query);
+        $this->checkRange($query,'u.dp_id','u.user_id');
+        return $this->autoPaginate($query)->toArray();
+    }
+
+    public function getInputInfo($kw_id){
+       return  Db::table('keywords k')
+            ->join('keywords_material km','k.kw_id = km.kw_id')
+            ->join('categories c','k.c_id = c.c_id')
+            ->where('k.kw_id','=',(int)$kw_id)->where('km.status','=',1)
+            ->field('k.keyword,c.c_id,c.catename category,count(*) material_num')
+            ->find();
+    }
+
+    /**
+     * @return $message
+     */
+    public function getMessage()
+    {
+        return $this->message;
+    }
+}

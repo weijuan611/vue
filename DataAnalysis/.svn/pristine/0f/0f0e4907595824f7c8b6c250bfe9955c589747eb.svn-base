@@ -1,0 +1,211 @@
+<template>
+  <el-dialog
+    title="素材录入"
+    :visible.sync="isShow"
+    width="70%"
+    :before-close="handleClose">
+    <table class="table1" cellspacing="0">
+      <tr>
+        <td colspan="3">
+          <b>关键词：</b>{{form.keyword}}
+          <b>分类：</b>{{form.category}}
+          <b>素材数量：</b>{{form.material_num}}
+        </td>
+      </tr>
+      <tr>
+        <td style="width: 15%;">标题</td>
+        <td style="width: 70%;">
+          <el-input style="width: 50%;" size="mini" v-model="form.title"></el-input>
+          <span class="red fr" style="margin-right:10px;margin-top: 5px;">未包含关键词</span>
+        </td>
+        <td rowspan="5" style="width: 15%;" class="buttons">
+          <el-button type="primary" plain size="mini" @click="requestUeMsgFunc">复制文本</el-button>
+          <el-button type="primary" plain size="mini">去HTML</el-button>
+          <el-button type="primary" plain size="mini">插入图片</el-button>
+          <el-button type="primary" plain size="mini">图片代码</el-button>
+          <el-button type="primary" plain size="mini">插入关键词</el-button>
+          <el-button type="primary" plain size="mini">首关键词加粗</el-button>
+          <el-button type="primary" plain size="mini">同义词替换</el-button>
+          <el-button type="primary" plain size="mini">回退一步</el-button>
+        </td>
+      </tr>
+      <tr>
+        <td>来源作者</td>
+        <td>
+          <el-input style="width: 50%;" size="mini" v-model="form.author"></el-input>
+        </td>
+      </tr>
+      <tr style="height: 60px;">
+        <td>封面</td>
+        <td>
+          <el-upload
+            style="margin-top: 10px;"
+            action="https://jsonplaceholder.typicode.com/posts/">
+            <el-button size="small" type="primary">点击上传</el-button>
+            <!-- <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过500kb</div> -->
+          </el-upload>
+        </td>
+      </tr>
+      <tr style="height: 150px;">
+        <td>正文</td>
+        <td>
+          <ueditor
+            :requestUeMsg="requestUeMsgBool"
+            @getUeMsg="getUeMsg"
+          />
+        </td>
+      </tr>
+      <tr style="height: 50px;">
+        <td>检测结果</td>
+        <td>
+          <p class="red">关键词密度不足2%;</p>
+          <p class="red">与原文相似度超过80%;</p>
+        </td>
+      </tr>
+      <tr style="height: 60px;">
+        <td colspan="3">
+          <el-radio-group v-model="form.type" @change="changeTypeValue">
+           <el-radio label="0">新闻</el-radio>
+           <el-radio label="1">头条</el-radio>
+           <el-radio label="2">知道</el-radio>
+          </el-radio-group>
+
+          <el-form label-position="right">
+            <el-form-item label="地区：" label-width="70px" v-show="typeValue === 'xinwen'">
+              <el-input size="mini" style="width: 120px;" v-model="form.area_id"></el-input>
+            </el-form-item>
+            <el-form-item label="悬赏积分：" label-width="100px" v-show="typeValue === 'zhidao'">
+              <el-select v-model="form.points" style="width: 100px;" size="mini" placeholder="请选择">
+                <el-option
+                  v-for="item in integralOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value">
+                </el-option>
+              </el-select>&nbsp;&nbsp;(分)
+            </el-form-item>
+          </el-form>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="3" class="buttons2">
+          <el-button type="primary" size="mini">文章检测</el-button>
+          <el-button type="primary" size="mini">文章预览</el-button>
+          <el-button type="primary" size="mini">保存素材</el-button>
+          <el-button type="primary" size="mini">保存发布</el-button>
+          <el-button type="primary" size="mini">取消</el-button>
+        </td>
+      </tr>
+
+    </table>
+  </el-dialog>
+
+</template>
+
+<script>
+  import ueditor from './../../../components/base/ueditor.vue'
+  export default {
+    components: {
+      ueditor
+    },
+    props: {
+      show: false,
+      kwId:0
+    },
+    data () {
+      return {
+       isShow: false,
+       form:{
+           kw_id:0,
+           keyword:'',
+           c_id:0,
+           category:'',
+           material_num:0,
+           title:'',
+           author:'',
+           cover_img:'',
+           context:'',
+           type:0,
+           area_id:0,
+           points:0,
+          },
+       fileList: [{name: 'food.jpeg', url: 'https://fuss10.elemecdn.com/3/63/4e7f3a15429bfda99bce42a18cdd1jpeg.jpeg?imageMogr2/thumbnail/360x360/format/webp/quality/100'}, {name: 'food2.jpeg', url: 'https://fuss10.elemecdn.com/3/63/4e7f3a15429bfda99bce42a18cdd1jpeg.jpeg?imageMogr2/thumbnail/360x360/format/webp/quality/100'}],
+       typeValue: 'xinwen',
+       area: '南京',
+       integral: '无悬赏',
+       integralOptions: [
+         {
+            value: '0',
+            label: '无悬赏'
+          }, {
+            value: '10',
+            label: '10'
+          }, {
+            value: '20',
+            label: '20'
+          }, {
+            value: '30',
+            label: '30'
+          }, {
+            value: '40',
+            label: '40'
+          }, {
+            value: '50',
+            label: '50'
+          }, {
+            value: '70',
+            label: '70'
+          }, {
+            value: '100',
+            label: '100'
+          }
+        ],
+        requestUeMsgBool: false
+      }
+    },
+    watch: {
+      show () {
+        this.isShow = this.show
+      },
+      kwId(val,old){
+          let that = this
+          this.form.kw_id = val
+          this.$ajax.get('material_input/info?kw_id='+val).then(function (res) {
+              if(res.status === 200){
+                  that.form.keyword = res.data.keyword;
+                  that.form.c_id = res.data.c_id;
+                  that.form.category = res.data.category;
+                  that.form.material_num = res.data.material_num;
+              }else {
+                  that.$message({type:'error',message:res.data})
+              }
+          }).catch(function () {
+              that.$message({type:'error',message:'网络错误，请联系管理员'})
+          })
+      }
+    },
+    mounted() {
+    },
+    destroyed () {
+    },
+    methods: {
+      requestUeMsgFunc () {
+        this.requestUeMsgBool = true
+      },
+      getUeMsg (msg) {
+        console.log('msg', msg)
+      },
+      handleClose () {
+        this.isShow = false
+      },
+      changeTypeValue (val) {
+      }
+    }
+  }
+</script>
+
+<style>
+  .el-dialog {
+    margin-top: 10px!important;
+  }
+</style>

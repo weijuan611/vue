@@ -1,0 +1,28 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2018/3/10
+ * Time: 14:01
+ */
+
+namespace app\index\model;
+
+use think\Db;
+
+class Tasks extends Base
+{
+    protected $searchColumn = [
+        'userName'=>['t.user_name','like'],
+        'taskTime'=>['t.task_time','between'],
+        'status'=>['t.status','='],
+    ];
+
+    public function getList(){
+        $query = Db::table('task t')->join('departments d','t.dp_id = d.dp_id','left');
+        $this->checkSearch($query);
+        $this->checkRange($query,'t.dp_id','t.user_id');
+        return $this->autoPaginate($query)->toArray();
+    }
+
+}

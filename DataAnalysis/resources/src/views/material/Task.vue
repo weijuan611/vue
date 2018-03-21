@@ -1,0 +1,269 @@
+<template>
+    <page-wrap>
+        <!-- 搜索栏 -->
+        <search-wrap>
+          <search-form :data="searchData">
+            <form-row>
+              <form-col width="5" label="推广人员：">
+                <el-input v-model="searchData.userName" placeholder="请输入内容"></el-input>
+              </form-col>
+              <form-col width="8" label="任务日期：">
+                <el-date-picker
+                        v-model="searchData.taskTime"
+                        type="daterange"
+                        value-format="yyyy-MM-dd"
+                        range-separator="至"
+                        start-placeholder="开始日期"
+                        end-placeholder="结束日期">
+                </el-date-picker>
+              </form-col>
+              <form-col width="5" label="任务状态：">
+                <el-select v-model="searchData.status">
+                    <el-option value="0" label="已取消"/>
+                    <el-option value="1" label="待发布"/>
+                    <el-option value="2" label="已发布"/>
+                </el-select>
+              </form-col>
+              <form-col width="5">
+                <el-button type="primary" @click="onSubmit(null)">查询</el-button>
+                <el-button type="danger" @click="onClear">清空</el-button>
+                <el-button type="success" @click="onAdd" :disabled="!buttonControl.material_taskadd">添加任务</el-button>
+              </form-col>
+            </form-row>
+          </search-form>
+
+        </search-wrap>
+
+        <!-- 表格 -->
+        <table-wrap>
+            <div class="withTableHeader">
+                <el-button type="primary" plain size="mini" @click="onEditAll" :disabled="!buttonControl.material_taskedit">批量编辑</el-button>
+            </div>
+            <el-table
+                    ref="materialTaskTable"
+                    v-loading="loading"
+                    :data="tableData"
+                    size="mini"
+                    @sort-change="tableSortChange"
+                    @selection-change="handleSelect"
+                    :height="tabTableHeight">
+                <el-table-column fixed="left" type="selection" width="55px"></el-table-column>
+                <el-table-column label="任务时间" prop="task_time" width="140px"></el-table-column>
+                <el-table-column label="推广人员" prop="user_name"></el-table-column>
+                <el-table-column label="部门" prop="dp_name"></el-table-column>
+                <el-table-column label="分类" prop="category"></el-table-column>
+                <el-table-column label="任务状态" prop="status">
+                    <template slot-scope="scope">
+                        <span v-show="scope.row.status == 0" class="check_red">取消</span>
+                        <span v-show="scope.row.status == 1" class="check_orange">待发布</span>
+                        <span v-show="scope.row.status == 2" class="check_green">已发布</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="任务关键词数" prop="keyword_num">
+                    <template slot-scope="scope">
+                        <el-popover trigger="hover" placement="right">
+                            <p>指定词：{{ scope.row.keywords }}</p>
+                            <div slot="reference" class="name-wrapper">{{ scope.row.keyword_num }}</div>
+                        </el-popover>
+                    </template>
+                </el-table-column>
+                <el-table-column label="任务文章数/词" prop="article_num"></el-table-column>
+                <el-table-column label="发布人" prop="release_user_name"></el-table-column>
+                <el-table-column label="发布时间" prop="release_time" width="140px"></el-table-column>
+                <el-table-column label="备注" prop="memo"></el-table-column>
+                <el-table-column label="操作" width="220px" header-align="center">
+                    <template slot-scope="scope">
+                        <el-button type="text" plain size="mini" icon="el-icon-upload"
+                                   @click="onRelease(scope.row)" :disabled="!buttonControl.material_taskrelease">发布
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-edit"
+                                   @click="onEdit(scope.row)" :disabled="!buttonControl.material_taskedit">编辑
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-delete" v-show="scope.row.status !== 0"
+                                   @click="onDelete(scope.row)" :disabled="!buttonControl.material_taskdelete">取消
+                        </el-button>
+                        <el-button type="text" plain size="mini" icon="el-icon-upload2" v-show="scope.row.status === 0"
+                                   @click="onBack(scope.row)" :disabled="!buttonControl.material_taskback">恢复
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </table-wrap>
+
+        <!-- 分页 -->
+        <pagination :data="paginationData" @submit="onSubmit"/>
+        <task-add :handle="addDialog" :type="typeDialog" :task-id="taskId" @callback="onSubmit"/>
+
+    </page-wrap>
+</template>
+
+<script>
+    import PageWrap from './../../components/pageStructure/PageWrap.vue'
+    import SearchWrap from './../../components/pageStructure/SearchWrap.vue'
+    import TableWrap from './../../components/pageStructure/TableWrap.vue'
+    import Pagination from './../../components/pageStructure/Pagination.vue'
+    import SearchForm from './../../components/pageStructure/SearchForm.vue'
+    import FormRow from './../../components/pageStructure/SearchFormRow.vue'
+    import FormCol from './../../components/pageStructure/SearchFormRowCol.vue'
+    import TaskAdd from './TaskAdd.vue'
+
+    import {mapState} from 'vuex'
+    export default {
+        components: {
+            PageWrap, SearchWrap, TableWrap,  Pagination, SearchForm, FormRow, FormCol, TaskAdd
+        },
+        data() {
+            return {
+                buttonControl:{},
+                searchData: {userName: '', taskTime: [], status: ''},
+                tableData: [],
+                loading: false,
+                paginationData: {currentPage:1,pageSize:50,total:0},
+                addDialog:false,
+                typeDialog:'',
+                taskId:[],
+                taskIdArr:[]
+            }
+        },
+        computed: {
+            ...mapState('navTabs', [
+                'tabTableHeight','material_to_task'
+            ])
+        },
+        watch: {
+            material_to_task () {
+                this.initSearchData()
+            }
+        },
+        mounted() {
+            this.initSearchData()
+            this.onSubmit()
+        },
+        methods: {
+            initSearchData () {
+                this.searchData = {
+                    userName: this.material_to_task.userName !== '' ? this.material_to_task.userName : "",
+                    taskTime: this.material_to_task.taskTime !== '' ? this.material_to_task.taskTime : [],
+                    status:this.material_to_task.status !== '' ? this.material_to_task.status : "",
+                }
+            },
+            onClear(){
+               this.searchData ={userName: '', taskTime: [], status: ''}
+            },
+            onSubmit(paginationData=null) {
+                let that = this
+                if(paginationData !== null){
+                    that.paginationData = paginationData;
+                }else{
+                    that.paginationData.currentPage = 1;
+                }
+                if(this.loading){
+                    return
+                }
+                console.log('search',that.searchData)
+                this.$ajax.post('/material_task/list', {search: that.searchData, paginate: that.paginationData})
+                    .then(function (res) {
+                        if (res.data !== undefined) {
+                            that.tableData = res.data.data
+                            that.paginationData.total = res.data.total
+                            that.loading = false
+                            that.buttonControl = res.data.buttonControl
+                        }
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+            },
+            tableSortChange(val){
+                this.paginationData.prop = val.prop
+                this.paginationData.order = val.order
+                this.onSubmit()
+            },
+            onDelete(row) {
+                let that = this
+                this.$prompt('备注:', '取消任务', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                }).then(({ value }) => {
+                    this.$ajax.post('/material_task/delete', {id: row.t_id,memo:value})
+                        .then(function (res) {
+                            if (res.data.type) {
+                                that.onSubmit(null)
+                                that.$message({
+                                    type: 'success',
+                                    message: res.data.message
+                                })
+                            } else {
+                                that.$message({type: 'error', message: res.data.message})
+                            }
+                        })
+                        .catch(function (err) {
+                            that.$message('网络错误！请联系管理员')
+                            that.loading = false
+                        })
+                })
+            },
+            onBack(row){
+                let that = this
+                this.$ajax.post('/material_task/back', {id: row.t_id})
+                    .then(function (res) {
+                        if (res.data.type === true) {
+                            that.onSubmit(null)
+                            that.$message({
+                                type: 'success',
+                                message: res.data.message
+                            })
+                        } else {
+                            that.$message({type: 'error', message: res.data.message})
+                        }
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+            },
+            onAdd(){
+                this.typeDialog = ''
+                this.taskId = []
+                this.addDialog = !this.addDialog
+            },
+            onEdit(row){
+                this.typeDialog = 'edit'
+                this.taskId = [row.t_id]
+                this.addDialog = !this.addDialog
+            },
+            handleSelect(val){
+                let tmp = [];
+                val.forEach(function (value,index,arr) {
+                    tmp.push(value.t_id)
+                },this)
+                this.taskIdArr = tmp
+            },
+            onEditAll(){
+                this.typeDialog = 'editAll'
+                this.taskId = this.taskIdArr
+                this.addDialog = !this.addDialog
+            },
+            onRelease(row){
+                let that = this
+                this.$ajax.post('material_task/release', {id: row.t_id})
+                    .then(function (res) {
+                        if (res.data.type === true) {
+                            that.onSubmit(null)
+                            that.$message({
+                                type: 'success',
+                                message: res.data.message
+                            })
+                        } else {
+                            that.$message({type: 'error', message: res.data.message})
+                        }
+                    })
+                    .catch(function (err) {
+                        that.$message('网络错误！请联系管理员')
+                        that.loading = false
+                    })
+            }
+        }
+    }
+</script>

@@ -1,0 +1,32 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hitoTright
+ * Date: 2018/3/13
+ * Time: 10:55
+ */
+namespace app\index\controller\common;
+
+use app\index\controller\Base;
+use app\index\model\Keyword;
+use app\index\model\Mlexicon;
+use app\index\model\User;
+
+class Dialog extends Base
+{
+    public function keywordCategory(){
+        return json((new Mlexicon())->categories_init());
+    }
+
+    public function keyword(){
+        $model = new Keyword();
+        $result=$model->getListCommon();
+        return json(['data'=>$result['data'],'total'=>$result['total']]);
+    }
+
+    public function user(){
+        $model = new User();
+        $result=$model->getListCommon();
+        return json(['data'=>$result['data'],'total'=>$result['total']]);
+    }
+}

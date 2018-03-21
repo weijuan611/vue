@@ -1,0 +1,65 @@
+<template>
+    <div>
+        <script id="editor" type="text/plain" style="width:100%;height:200px;" />
+    </div>
+</template>
+
+<script>
+            export default {
+            name: 'UE',
+            data () {
+            return {
+            editor: null
+        }
+        },
+            props: {
+            defaultMsg: {
+            type: String,
+            default: ''
+        },
+            insertMsg: {
+            type: Object,
+            default: false
+        },
+            config: {
+            type: Object,
+            default:function () {
+            return {
+            toolbars: [
+            ['fullscreen', 'source', 'undo', 'redo', 'bold', 'italic', 'fontfamily', 'fontsize', 'underline',
+            'removeformat', 'formatmatch', 'autotypeset', 'blockquote', 'pasteplain', '|', 'forecolor', 'backcolor',
+            'insertorderedlist','selectall', 'cleardoc', 'searchreplace', 'emotion','insertimage','indent']
+            ]
+            ,autoHeightEnabled: true
+            ,autoFloatEnabled: true
+            ,elementPathEnabled : false　　//是否启用元素路径，默认是true显示
+            ,wordCount:false          //是否开启字数统计
+            ,autoHeightEnabled:false　　// 编辑器内容，是否自动长高,默认true
+            ,fullscreen : false //是否开启初始化时即全屏，默认关闭
+            ,zIndex : 3000,
+            serverUrl:"/index.php/common/dialog/uediterServer"
+        }
+        }
+        }
+        },
+            watch: {
+
+            insertMsg () {
+            this.editor.setContent(this.editor.getContent() + '' + this.insertMsg.msg)
+        }
+        },
+            mounted() {
+            const _this = this
+            this.editor = UE.getEditor('editor', this.config); // 初始化UE
+            this.editor.addListener("ready", function () {
+            _this.editor.setContent(_this.defaultMsg); // 确保UE加载完成后，放入内容。
+        })
+            this.editor.addListener("contentChange", function() {
+            _this.$emit('getUeMsg', _this.editor.getContent())
+        })
+        },
+            destroyed () {
+            this.editor.destroy()
+        }
+        }
+        </script>

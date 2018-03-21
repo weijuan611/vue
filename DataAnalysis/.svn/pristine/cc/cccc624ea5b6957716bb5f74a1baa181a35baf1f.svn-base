@@ -1,0 +1,119 @@
+// 改写组件颜色
+$--color-primary: #20a0ff;
+
+/* 改变 icon 字体路径变量，必需 */
+$--font-path: './../../../node_modules/element-ui/lib/theme-chalk/fonts';
+@import "./../../../node_modules/element-ui/packages/theme-chalk/src/index";
+
+// 侧边栏
+.sidebar > ul {
+  background-color: #324157;
+}
+.el-menu {
+  background-color: #1f2d3d;
+}
+.el-submenu__title {
+  color: #bfcbd9;
+}
+.el-submenu__title:hover {
+  background-color: #4d5b71;
+}
+.el-menu-item {
+  color: #bfcbd9;
+}
+.el-menu-item:hover {
+  background-color: #48576a;
+}
+ul > li > .el-menu > .el-menu-item {
+  background-color: #1f2d3d;
+}
+ul > li > .el-menu > .el-menu-item:hover {
+  background-color: #48576a;
+}
+.el-menu-item:focus {
+  background-color: #324157;
+}
+
+
+// 改写组件样式
+.el-tabs {
+  height: 100%!important;
+}
+.el-tabs .el-tabs__content {
+  padding: 2px 6px;
+  height: 95%;
+  overflow-x: auto!important;
+  overflow-y: auto!important;
+}
+.el-tabs .el-tabs__content .el-tab-pane {
+  min-width: 900px;
+}
+
+.el-table {
+  color: #1f2d3d;
+}
+.el-table .cell {
+  white-space: nowrap!important;
+}
+.el-table .el-checkbox__inner {
+  margin-left: 8px;
+}
+.el-table--mini td, .el-table--mini th {
+  padding: 0!important;
+}
+.el-table thead tr th .cell .caret-wrapper {
+  height: 30px!important;
+  margin-left: 20px;
+}
+.el-table thead tr th .cell .caret-wrapper .sort-caret {
+  font-size: 12px!important;
+}
+.el-table td, .el-table th {
+  height: 28px!important;
+  padding: 0!important;
+}
+.el-table thead tr th {
+  color: #1f2d3d;
+  line-height: 30px!important;
+  background-color: #eef1f6;
+}
+.el-table tr:hover {
+  background: #f6faff;
+}
+.el-table .el-button {
+  padding: 5px 8px;
+}
+
+.el-dialog .el-input.dialog-input {
+  width: 85%;
+}
+.el-checkbox .el-checkbox__label {
+  padding-left: 6px;
+}
+.el-card .el-card__header .el-form .el-form-item {
+  margin-bottom: 0;
+}
+
+// special setting
+.class-list-dialog .el-dialog__body {
+  padding: 5px 15px;
+}
+
+/* Dialog */
+.el-dialog h1 {
+  font-size: 20px;
+  color: #555;
+}
+.searchWrap input.el-input__inner{
+    height: 20px !important;
+    line-height: 20px !important;
+}
+.searchWrap .el-form-item__label,.searchWrap .el-form-item__content,.searchWrap .el-form-item__content .el-cascader{
+    line-height: 25px !important;
+}
+.el-table_2_column_32 .cell .el-button + .el-button{
+    margin-left: 0 !important;
+}
+.el-table_2_column_32 .cell{
+    text-align: center !important;
+}
