@@ -12,15 +12,15 @@
 return [
     // 数据库类型
     'type'            => 'mysql',
-     'hostname'        => '192.168.8.218',
-     'database'        => 'c1_hxtongji',
-     'username'        => 'c1_hxtongji',
-     'password'        => 'rKenU5@X',
+     // 'hostname'        => '192.168.8.218',
+     // 'database'        => 'c1_hxtongji',
+     // 'username'        => 'c1_hxtongji',
+     // 'password'        => 'rKenU5@X',
 
-//    'hostname'        => '192.168.8.219',
-//    'database'        => 'c1_sjtj',
-//    'username'        => 'c1_sjtj',
-//    'password'        => 'Lsel0#3I',
+   'hostname'        => '192.168.8.219',
+   'database'        => 'c1_sjtj',
+   'username'        => 'c1_sjtj',
+   'password'        => 'Lsel0#3I',
 
     // 端口
     'hostport'        => '3306',

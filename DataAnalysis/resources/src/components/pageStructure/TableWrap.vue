@@ -54,16 +54,16 @@ export default {
     scrollPaneFunc () {
       let that = this
       let scrollPane = document.getElementsByClassName('el-tabs__content')[0]
-      let currentPane = document.getElementById('pane-' + that.activeTabName)
       scrollPane.onscroll = function () {
         let paneTop = scrollPane.scrollTop
+        let currentPane = document.getElementById('pane-' + that.activeTabName)
         if (document.getElementById(that.activeTabName) !== null) {
           let table = currentPane.getElementsByClassName('tableWrap')[0]
-          let currentTables= currentPane.getElementsByClassName('el-table')
+          let currentTables = currentPane.getElementsByClassName('el-table')
           for (let i = 0; i < currentTables.length; i++) {
             if (currentTables[i].style.display !== 'none') {
               let tableHeader = currentTables[i].getElementsByClassName('el-table__header-wrapper')[0]
-              if (paneTop > table.offsetTop - 60) {
+              if (table.offsetTop > 300 && paneTop > table.offsetTop - 60) {
                 tableHeader.style.position = 'fixed'
                 tableHeader.style.top = '66px'
                 tableHeader.style.zIndex = 1
